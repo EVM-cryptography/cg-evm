@@ -5,3 +5,8 @@ database password:evm
 psql -U postgres -d voters -h 127.0.0.1 -W:whenever you want to enter:
 #voters
 
+client compilation syntax:
+g++ -o client client.cpp -lssl -lcrypto
+
+server compilation syntax:
+g++ -o server server.cpp -I/usr/include/postgresql -lpq -pthread
