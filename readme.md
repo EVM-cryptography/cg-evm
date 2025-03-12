@@ -1,13 +1,16 @@
-Objectives/Roadmap
+## Objectives/Roadmap
 - User Authentication (Login and Signup)
 - Basic Vote Casting Implementation
 - Database Management for Users and Votes
 - Monitoring System (checks database updates at regular intervals)
 - Merkle Tree Implementation (ensures database integrity)
 
-Missing Features
-- Party Selection Interface
-- Mult-voe Prevention SystemCompilation Commands
+## Missing Features
+- Merkel Tree Implementation
+
+
+
+## System Compilation Commands
 
 - Compile the server executable (outputs "server_bin"):
 
@@ -20,6 +23,11 @@ g++ client/client.cpp src/crypto.cpp -Iinclude -o client_bin -lssl -lcrypto
 - Compile the monitor executable (outputs "monitor_bin"):
 
 g++ monitor/monitor.cpp src/database.cpp -Iinclude -o monitor_bin -lsqlite3 -lpthread
+
+
+## Common Isuue & Fix
+- REGISTER FAILURE
+    Delete the .db file and try to register again, caused by conflicting entries or missing attributes.
 
 
 ## Execution Order
