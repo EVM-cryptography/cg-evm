@@ -10,17 +10,17 @@ Missing Features
 - Mult-voe Prevention SystemCompilation Commands
 
 - Compile the server executable (outputs "server_bin"):
-'''
+
 g++ server/server.cpp src/database.cpp -Iinclude -o server_bin -lsqlite3
-'''
+
 - Compile the client executable (outputs "client_bin"):
-'''
+
 g++ client/client.cpp src/crypto.cpp -Iinclude -o client_bin -lssl -lcrypto
-'''
+
 - Compile the monitor executable (outputs "monitor_bin"):
-'''
+
 g++ monitor/monitor.cpp src/database.cpp -Iinclude -o monitor_bin -lsqlite3 -lpthread
-'''
+
 
 ## Execution Order
 1. Start the server: `./server_bin`
