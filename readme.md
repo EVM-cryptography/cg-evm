@@ -1,15 +1,14 @@
 Objectives/Roadmap
--Login and Signup
--Vote casting(Party Selection Is Missing and Still lacks multi vote checks)
--DB Managemnt of User and Vote
--Monitorring is added to check the updated database on a certain interval.
--Implementation of Merkel Tree to Ensure Integrity of the DB.
-
+- User Authentication (Login and Signup)
+- Basic Vote Casting Implementation
+- Database Management for Users and Votes
+- Monitoring System (checks database updates at regular intervals)
+- Merkle Tree Implementation (ensures database integrity)
 
 Missing Features
--Multi vote check is missing
--Party Selection is Missing
-Compilation Commands
+- Party Selection Interface
+- Mult-voe Prevention SystemCompilation Commands
+
 # Compile the server executable (outputs "server_bin"):
 g++ server/server.cpp src/database.cpp -Iinclude -o server_bin -lsqlite3
 
@@ -20,7 +19,12 @@ g++ client/client.cpp src/crypto.cpp -Iinclude -o client_bin -lssl -lcrypto
 g++ monitor/monitor.cpp src/database.cpp -Iinclude -o monitor_bin -lsqlite3 -lpthread
 
 
-Execution Flow:
--srver_bin
--monitor_bin
--client_bin
+## Execution Order
+1. Start the server: `./server_bin`
+2. Start the monitor: `./monitor_bin`
+3. Launch the client: `./client_bin`
+
+## System Dependencies
+- SQLite3 development libraries
+- OpenSSL development libraries
+- POSIX Threads library
