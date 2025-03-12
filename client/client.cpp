@@ -5,44 +5,54 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <stdexcept>
 
 #define SERVER_PORT 8080
 #define SERVER_IP "127.0.0.1"
+#define MAX_RETRIES 3
 
-// Send request to server and get response
+// Send request to server with retry mechanism
 std::string sendRequest(const std::string &request) {
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if(sock < 0) return "ERROR";
-    
-    sockaddr_in serv_addr{};
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(SERVER_PORT);
-    
-    if(inet_pton(AF_INET, SERVER_IP, &serv_addr.sin_addr) <= 0 ||
-       connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+    for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        int sock = socket(AF_INET, SOCK_STREAM, 0);
+        if(sock < 0) {
+            std::cerr << "Socket creation failed, retry " << attempt+1 << "/" << MAX_RETRIES << "\n";
+            sleep(1);
+            continue;
+        }
+        
+        struct sockaddr_in serv_addr{};  // Zero-initialize
+        serv_addr.sin_family = AF_INET;
+        serv_addr.sin_port = htons(SERVER_PORT);
+        
+        if(inet_pton(AF_INET, SERVER_IP, &serv_addr.sin_addr) <= 0 ||
+           connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+            std::cerr << "Connection failed, retry " << attempt+1 << "/" << MAX_RETRIES << "\n";
+            close(sock);
+            sleep(1);
+            continue;
+        }
+        
+        send(sock, request.c_str(), request.size(), 0);
+        
+        char buffer[1024] = {0};
+        int valread = read(sock, buffer, sizeof(buffer));
         close(sock);
-        return "ERROR";
+        
+        if(valread > 0) return std::string(buffer, valread);
     }
-    
-    send(sock, request.c_str(), request.size(), 0);
-    
-    char buffer[1024] = {0};
-    int valread = read(sock, buffer, 1024);
-    close(sock);
-    
-    return std::string(buffer, valread);
+    return "ERROR: Server communication failed";
 }
 
 int main() {
     int choice;
-    bool loggedIn = false;
-    bool hasVoted = false;
+    bool loggedIn = false, hasVoted = false;
     std::string sessionUID, sessionHashUID, sessionH2;
-    std::string input, uid, pwd, response, vote;
-    
+    std::string input;
     const char* PARTIES[] = {"BJP", "INC", "TRS"};
     
     while(true) {
+        // Display menu
         std::cout << "\n--- E-Voting Client Menu ---\n"
                   << "1. Register\n"
                   << "2. Login\n"
@@ -51,6 +61,7 @@ int main() {
                   << "Enter your choice: ";
         std::getline(std::cin, input);
         
+        // Parse choice with simple error handling
         try {
             choice = std::stoi(input);
         } catch (...) {
@@ -58,29 +69,33 @@ int main() {
             continue;
         }
         
-        // Declaration moved outside the switch to avoid scope issues
-        int partyChoice = 0;
-        
         switch(choice) {
-            case 1: // Register
+            case 1: { // Register
                 std::cout << "Enter UID: ";
-                std::getline(std::cin, uid);
-                std::cout << "Enter Password: ";
-                std::getline(std::cin, pwd);
+                std::getline(std::cin, input);
+                std::string uid = input;
                 
-                response = sendRequest("REGISTER " + sha256(uid) + " " + sha256(pwd));
-                std::cout << "Server response: " << response << std::endl;
+                std::cout << "Enter Password: ";
+                std::getline(std::cin, input);
+                std::string pwd = input;
+                
+                std::string response = sendRequest("REGISTER " + sha256(uid) + " " + sha256(pwd));
+                std::cout << "Server: " << response << std::endl;
                 break;
+            }
                 
-            case 2: // Login
+            case 2: { // Login
                 std::cout << "Enter UID: ";
-                std::getline(std::cin, uid);
+                std::getline(std::cin, input);
+                std::string uid = input;
+                
                 std::cout << "Enter Password: ";
-                std::getline(std::cin, pwd);
+                std::getline(std::cin, input);
+                std::string pwd = input;
                 
                 sessionHashUID = sha256(uid);
-                response = sendRequest("LOGIN " + sessionHashUID + " " + sha256(pwd));
-                std::cout << "Server response: " << response << std::endl;
+                std::string response = sendRequest("LOGIN " + sessionHashUID + " " + sha256(pwd));
+                std::cout << "Server: " << response << std::endl;
                 
                 if(response.find("SUCCESS") != std::string::npos) {
                     loggedIn = true;
@@ -88,12 +103,12 @@ int main() {
                     sessionH2 = sha256(pwd + "H2_CONSTANT");
                     hasVoted = (response.find("ALREADY_VOTED") != std::string::npos);
                     
-                    if(hasVoted)
-                        std::cout << "You have already cast your vote.\n";
+                    if(hasVoted) std::cout << "You have already cast your vote.\n";
                 }
                 break;
+            }
                 
-            case 3: // Cast Vote
+            case 3: { // Cast Vote
                 if(!loggedIn) {
                     std::cout << "Please login first.\n";
                     break;
@@ -104,16 +119,18 @@ int main() {
                     break;
                 }
                 
-                // Party selection menu
+                // Display voting options
                 std::cout << "\n--- Available Parties ---\n";
                 for(int i = 0; i < 3; i++)
                     std::cout << (i+1) << ". " << PARTIES[i] << std::endl;
-                std::cout << "Enter your choice (1-3): ";
                 
+                // Get and validate vote choice
+                std::cout << "Enter your choice (1-3): ";
                 std::getline(std::cin, input);
                 
+                std::string vote;
                 try {
-                    partyChoice = std::stoi(input);
+                    int partyChoice = std::stoi(input);
                     if(partyChoice < 1 || partyChoice > 3) throw std::invalid_argument("");
                     vote = PARTIES[partyChoice-1];
                 } catch (...) {
@@ -121,6 +138,7 @@ int main() {
                     break;
                 }
                 
+                // Confirm vote
                 std::cout << "You are voting for: " << vote << "\nConfirm? (y/n): ";
                 std::getline(std::cin, input);
                 if(input != "y" && input != "Y") {
@@ -128,18 +146,20 @@ int main() {
                     break;
                 }
                 
-                response = sendRequest("CAST_VOTE " + 
-                                       aes256_encrypt(sessionUID, sessionH2) + " " +
-                                       sha256(vote) + " " + 
-                                       sessionHashUID);
+                // Send vote to server
+                std::string response = sendRequest("CAST_VOTE " + 
+                                                  aes256_encrypt(sessionUID, sessionH2) + " " +
+                                                  sha256(vote) + " " + 
+                                                  sessionHashUID);
                 
-                std::cout << "Server response: " << response << std::endl;
+                std::cout << "Server: " << response << std::endl;
                 
                 if(response.find("SUCCESS") != std::string::npos) {
                     std::cout << "Your vote has been successfully recorded!\n";
                     hasVoted = true;
                 }
                 break;
+            }
                 
             case 4: // Exit
                 std::cout << "Exiting...\n";

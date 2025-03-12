@@ -6,7 +6,7 @@
 #define DB_NAME "evote.db"
 
 int main() {
-    std::cout << "Starting database monitor...\n";
+    std::cout << "Starting E-Voting database monitor...\n";
     
     while (true) {
         std::cout << "\n============ Database Snapshot ============\n";

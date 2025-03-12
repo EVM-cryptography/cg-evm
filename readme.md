@@ -4,6 +4,7 @@
 - Database Management for Users and Votes
 - Monitoring System (checks database updates at regular intervals)
 - Merkle Tree Implementation (ensures database integrity)
+- Added Multiple Client Handling
 
 ## Missing Features
 - Merkel Tree Implementation
@@ -14,15 +15,18 @@
 
 - Compile the server executable (outputs "server_bin"):
 
-`g++ server/server.cpp src/database.cpp -Iinclude -o server_bin -lsqlite3`
+`g++ -std=c++11 server/server.cpp src/database.cpp -Iinclude -o server_bin -lsqlite3 -lpthread`
 
 - Compile the client executable (outputs "client_bin"):
 
-`g++ client/client.cpp src/crypto.cpp -Iinclude -o client_bin -lssl -lcrypto`
+`g++ -std=c++11 client/client.cpp src/crypto.cpp -Iinclude -o client_bin -lssl -lcrypto`
+
+- Compile the second client (optional)
+`g++ -std=c++11 client/client2.cpp src/crypto.cpp -Iinclude -o client2_bin -lssl -lcrypto`
 
 - Compile the monitor executable (outputs "monitor_bin"):
 
-`g++ monitor/monitor.cpp src/database.cpp -Iinclude -o monitor_bin -lsqlite3 -lpthread`
+`g++ -std=c++11 monitor/monitor.cpp src/database.cpp -Iinclude -o monitor_bin -lsqlite3`
 
 
 ## Common Isuue & Fix
