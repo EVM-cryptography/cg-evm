@@ -11,7 +11,7 @@
 
 using namespace std;
 
-// Function to insert data into the PostgreSQL database
+// Function to insert data into the PostgreSQL database for signup
 void insert_into_db(const string& username, const string& hashed_password) {
     PGconn* conn = PQconnectdb("dbname=voters user=postgres password='evm' hostaddr=127.0.0.1 port=5432");
 
@@ -27,11 +27,43 @@ void insert_into_db(const string& username, const string& hashed_password) {
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         cerr << "Insert failed: " << PQerrorMessage(conn) << endl;
     } else {
-        cout << "Data inserted successfully: " << username << endl;
+        cout << "Signup successful for user: " << username << endl;
     }
 
     PQclear(res);
     PQfinish(conn);
+}
+
+// Function to verify login credentials
+bool verify_login(const string& username, const string& hashed_password) {
+    PGconn* conn = PQconnectdb("dbname=voters user=postgres password='evm' hostaddr=127.0.0.1 port=5432");
+
+    if (PQstatus(conn) != CONNECTION_OK) {
+        cerr << "Database connection failed: " << PQerrorMessage(conn) << endl;
+        PQfinish(conn);
+        return false;
+    }
+
+    string query = "SELECT COUNT(*) FROM voters WHERE username = '" + username + "' AND hashed_password = '" + hashed_password + "';";
+    PGresult* res = PQexec(conn, query.c_str());
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        cerr << "Query failed: " << PQerrorMessage(conn) << endl;
+        PQclear(res);
+        PQfinish(conn);
+        return false;
+    }
+
+    // Check if the count is greater than 0
+    bool login_successful = false;
+    if (PQntuples(res) > 0 && atoi(PQgetvalue(res, 0, 0)) > 0) {
+        login_successful = true;
+    }
+
+    PQclear(res);
+    PQfinish(conn);
+
+    return login_successful;
 }
 
 // Function to handle client connections
@@ -42,15 +74,33 @@ void* handle_client(void* socket_desc) {
     read(new_socket, buffer, BUFFER_SIZE);
     cout << "Received: " << buffer << endl;
 
-    // Parse received data (format: "username,hashed_password")
+    // Parse received data (format: "ACTION,username,hashed_password")
     string data(buffer);
-    size_t comma_pos = data.find(",");
-    if (comma_pos != string::npos) {
-        string username = data.substr(0, comma_pos);
-        string hashed_password = data.substr(comma_pos + 1);
-        insert_into_db(username, hashed_password);
+    size_t first_comma_pos = data.find(",");
+    size_t second_comma_pos = data.find(",", first_comma_pos + 1);
+
+    if (first_comma_pos != string::npos && second_comma_pos != string::npos) {
+        string action = data.substr(0, first_comma_pos); // SIGNUP or LOGIN
+        string username = data.substr(first_comma_pos + 1, second_comma_pos - first_comma_pos - 1);
+        string hashed_password = data.substr(second_comma_pos + 1);
+
+        if (action == "SIGNUP") {
+            insert_into_db(username, hashed_password);
+            send(new_socket, "Signup successful", strlen("Signup successful"), 0);
+        } else if (action == "LOGIN") {
+            bool success = verify_login(username, hashed_password);
+            if (success) {
+                send(new_socket, "Login successful", strlen("Login successful"), 0);
+            } else {
+                send(new_socket, "Invalid credentials", strlen("Invalid credentials"), 0);
+            }
+        } else {
+            cerr << "Invalid action received" << endl;
+            send(new_socket, "Invalid action", strlen("Invalid action"), 0);
+        }
     } else {
         cerr << "Invalid data format" << endl;
+        send(new_socket, "Invalid data format", strlen("Invalid data format"), 0);
     }
 
     close(new_socket);
@@ -105,3 +155,4 @@ int main() {
     close(server_fd);
     return 0;
 }
+
