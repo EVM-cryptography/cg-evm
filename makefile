@@ -2,13 +2,13 @@ CC = g++
 CFLAGS = -std=c++11 -Wall -pthread
 LDFLAGS = -lsqlite3 -lcrypto -lssl
 
-all: server_dash client_dash
+all: server client
 
-server_dash: server_dash.cpp
-	$(CC) $(CFLAGS) -o server_dash server_dash.cpp $(LDFLAGS)
+server: server.cpp
+	$(CC) $(CFLAGS) -o server server.cpp $(LDFLAGS)
 
-client_dash: client.cpp
-	$(CC) $(CFLAGS) -o client_dash client_dash.cpp $(LDFLAGS)
+client: client.cpp
+	$(CC) $(CFLAGS) -o client client.cpp $(LDFLAGS)
 
 clean:
-	rm -f server_dash client_dash auth.db
+	rm -f server client auth.db
