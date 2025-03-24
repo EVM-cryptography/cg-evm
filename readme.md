@@ -15,7 +15,7 @@
 
 - Compile the server executable (outputs "server_bin"):
 
-`g++ -std=c++11 server/server.cpp src/database.cpp -Iinclude -o server_bin -lsqlite3 -lpthread`
+`g++ -std=c++11 server/server.cpp src/database.cpp src/crypto.cpp -Iinclude -o server_bin -lsqlite3 -lpthread`
 
 - Compile the client executable (outputs "client_bin"):
 

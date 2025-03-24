@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include "crypto.h"
 
 #define PORT 8080
 #define DB_NAME "evote.db"
@@ -21,7 +22,6 @@ std::string processRequest(const std::string &request) {
     std::string command, hashUID, h1, encUID, voteHash;
     iss >> command;
     
-    // Use mutex for all database operations for thread safety
     std::lock_guard<std::mutex> lock(db_mutex);
     
     if(command == "REGISTER") {
@@ -31,25 +31,23 @@ std::string processRequest(const std::string &request) {
     else if(command == "LOGIN") {
         iss >> hashUID >> h1;
         
-        // First check if user exists with matching credentials
         if(!checkUser(DB_NAME, hashUID, h1)) 
             return "LOGIN FAILURE";
         
-        // Then check if they've already voted
         return hasUserVoted(DB_NAME, hashUID) ? "LOGIN SUCCESS ALREADY_VOTED" : "LOGIN SUCCESS";
     } 
     else if(command == "CAST_VOTE") {
         iss >> encUID >> voteHash >> hashUID;
         
-        // Prevent double voting
         if(hasUserVoted(DB_NAME, hashUID))
             return "VOTE CAST FAILURE - ALREADY VOTED";
         
-        // Record vote and update user status
         bool voteAdded = addVote(DB_NAME, encUID, voteHash);
         bool statusUpdated = markUserAsVoted(DB_NAME, hashUID);
-        
-        if(voteAdded && statusUpdated)
+        std::string combinedHashInput = hashUID + voteHash;
+        std::string combinedHash = sha256(combinedHashInput);
+        std::cout<<"combined hash binding="<<combinedHash<<std::endl;
+        if(voteAdded && statusUpdated) 
             return "VOTE CAST SUCCESS";
         else
             return "VOTE CAST FAILURE";
