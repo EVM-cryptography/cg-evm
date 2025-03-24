@@ -60,6 +60,10 @@ std::string processRequest(const std::string &request) {
     std::cout << "the leaf node party voted to=" << voteHash << std::endl;
     std::cout << "MERKLE TREE ROOT HASH=" << rootHash << std::endl;
     std::cout << "TOTAL VOTES IN TREE=" << voteTree.getLeafCount() << std::endl;
+    
+    // Print the entire tree structure
+    voteTree.printTree();
+    
     std::cout << "----------------------------------------" << std::endl;
     
     if(voteAdded && statusUpdated) 

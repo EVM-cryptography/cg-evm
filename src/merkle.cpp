@@ -2,7 +2,7 @@
 #include "../include/crypto.h"
 #include <sstream>
 #include <iostream>
-
+#include <bits/stdc++.h>
 // Destructor to clean up all nodes
 MerkleTree::~MerkleTree() {
     clearInternalNodes();
@@ -52,7 +52,33 @@ void MerkleTree::clearInternalNodes() {
     
     root = nullptr;
 }
+void MerkleTree::printTree() {
+    std::lock_guard<std::mutex> lock(tree_mutex);
+    std::cout << "Merkle Tree Structure:" << std::endl;
+    if (root) {
+        printTreeRecursive(root, 0);
+    } else {
+        std::cout << "Tree is empty." << std::endl;
+    }
+}
 
+void MerkleTree::printTreeRecursive(Node* node, int depth) {
+    if (node == nullptr) return;
+
+    std::string indent(depth * 4, ' '); // 4 spaces per depth level
+
+    std::cout << indent << "Hash: " << node->hash << std::endl;
+
+    // Check if it's a leaf node
+    bool isLeaf = std::find(leaves.begin(), leaves.end(), node) != leaves.end();
+    if (isLeaf) {
+        std::cout << indent << "User Hash: " << node->userHash << std::endl;
+        std::cout << indent << "Vote Hash: " << node->voteHash << std::endl;
+    }
+
+    if (node->left) printTreeRecursive(node->left, depth + 1);
+    if (node->right) printTreeRecursive(node->right, depth + 1);
+}
 // Build tree from leaves using an iterative approach
 MerkleTree::Node* MerkleTree::buildTreeFromLeaves() {
     if (leaves.empty()) return nullptr;
