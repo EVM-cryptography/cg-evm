@@ -7,12 +7,12 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include "crypto.h"
-
+#include "../include/crypto.h" 
+#include "../include/merkle.h"
 #define PORT 8080
 #define DB_NAME "evote.db"
 #define BACKLOG 10  // Connection queue size
-
+MerkleTree voteTree; 
 // Mutex for thread-safe database operations
 std::mutex db_mutex;
 
@@ -37,21 +37,43 @@ std::string processRequest(const std::string &request) {
         return hasUserVoted(DB_NAME, hashUID) ? "LOGIN SUCCESS ALREADY_VOTED" : "LOGIN SUCCESS";
     } 
     else if(command == "CAST_VOTE") {
-        iss >> encUID >> voteHash >> hashUID;
-        
-        if(hasUserVoted(DB_NAME, hashUID))
-            return "VOTE CAST FAILURE - ALREADY VOTED";
-        
-        bool voteAdded = addVote(DB_NAME, encUID, voteHash);
-        bool statusUpdated = markUserAsVoted(DB_NAME, hashUID);
-        std::string combinedHashInput = hashUID + voteHash;
-        std::string combinedHash = sha256(combinedHashInput);
-        std::cout<<"combined hash binding="<<combinedHash<<std::endl;
-        if(voteAdded && statusUpdated) 
-            return "VOTE CAST SUCCESS";
-        else
-            return "VOTE CAST FAILURE";
+     iss >> encUID >> voteHash >> hashUID;
+    
+    if(hasUserVoted(DB_NAME, hashUID))
+        return "VOTE CAST FAILURE - ALREADY VOTED";
+    
+    bool voteAdded = addVote(DB_NAME, encUID, voteHash);
+    bool statusUpdated = markUserAsVoted(DB_NAME, hashUID);
+    
+    // Add to Merkle tree
+    voteTree.addVote(hashUID, voteHash);
+    
+    // Get and print the current root hash
+    std::string rootHash = voteTree.getRootHash();
+    
+    std::string combinedHashInput = hashUID + voteHash;
+    std::string combinedHash = sha256(combinedHashInput);
+    
+    std::cout << "----------------------------------------" << std::endl;
+    std::cout << "combined hash binding=" << combinedHash << std::endl;
+    std::cout << "the leaf node fields UID=" << hashUID << std::endl;
+    std::cout << "the leaf node party voted to=" << voteHash << std::endl;
+    std::cout << "MERKLE TREE ROOT HASH=" << rootHash << std::endl;
+    std::cout << "TOTAL VOTES IN TREE=" << voteTree.getLeafCount() << std::endl;
+    
+    // Print the entire tree structure
+    voteTree.printTree();
+    
+    std::cout << "----------------------------------------" << std::endl;
+    
+    if(voteAdded && statusUpdated) 
+        return "VOTE CAST SUCCESS";
+    else
+        return "VOTE CAST FAILURE";
     } 
+    else if(command == "GET_VERIFICATION_DATA") {
+    return voteTree.serializeToJson();
+}
     else if(command == "CHECK_VOTED") {
         iss >> hashUID;
         return hasUserVoted(DB_NAME, hashUID) ? "ALREADY_VOTED" : "NOT_VOTED";

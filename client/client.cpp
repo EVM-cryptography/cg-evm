@@ -207,7 +207,9 @@ int main() {
                                                   aes256_encrypt(sessionUID, sessionH2) + " " +
                                                   sha256(vote) + " " + 
                                                   sessionHashUID);
-                
+                std::cout<<"hash for BJP="<<sha256("BJP")<<std::endl;
+                std::cout<<"hash for INC="<<sha256("INC")<<std::endl;
+
                 std::cout << "Server: " << response << std::endl;
                 
                 if(response.find("SUCCESS") != std::string::npos) {
