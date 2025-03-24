@@ -26,7 +26,7 @@ private:
     Node* buildTreeFromLeaves();
     void clearInternalNodes();
     void printTreeRecursive(Node* node, int depth);
-    
+    int calculateTreeHeight(Node* node);
 public:
     MerkleTree() : root(nullptr) {}
     ~MerkleTree();
@@ -36,6 +36,7 @@ public:
     int getLeafCount();
     std::string serializeToJson();
     void printTree();
+
 }; // <-- Added semicolon here
 
 #endif
