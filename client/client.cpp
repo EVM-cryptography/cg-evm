@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <termios.h>
 
-
+#include "json.hpp"
 #define SERVER_PORT 8080
 #define SERVER_IP "127.0.0.1"
 #define MAX_RETRIES 3
@@ -219,34 +219,47 @@ int main() {
                 }
                 break;
             }  
-            case 4: { // Fetch Vote Information
-                if (!loggedIn) {
-                    std::cout << "Please login first.\n";
-                    break;
-                }
+
+case 4: { // Fetch Vote Information
+    if (!loggedIn) {
+        std::cout << "Please login first.\n";
+        break;
+    }
+
+    // Ask for username and password
+    std::string username, password;
+    std::cout << "Enter your username: ";
+    std::cin >> username;
+    std::cout << "Enter your password: ";
+    std::cin >> password; // Password isn't used for hashing, only for validation if needed
+
+    // Hash the username
+    std::string hashUID = sha256(username); // Assuming you have a sha256() function
+
+    // Send request to fetch vote information
+    std::string response = sendRequest("FETCH_NODE " + hashUID);
+    std::cout << "Server: " << response << std::endl;
+
+    if (response.find("SUCCESS") != std::string::npos) {
+        try {
+            // Parse the JSON response
+            json jsonResponse = json::parse(response);
             
-                // Ask for username and password
-                std::string username, password;
-                std::cout << "Enter your username: ";
-                std::cin >> username;
-                std::cout << "Enter your password: ";
-                std::cin >> password; // Password isn't used for hashing, only for validation if needed
-            
-                // Hash the username
-                std::string hashUID = sha256(username); // Assuming you have a sha256() function
-            
-                // Send request to fetch vote information
-                std::string response = sendRequest("FETCH_NODE " + hashUID);
-                std::cout << "Server: " << response << std::endl;
-            
-                if (response.find("SUCCESS") != std::string::npos) {
-                    std::cout << "Your vote information:\n" 
-                              << response.substr(response.find("\n") + 1) << std::endl;
-                } else {
-                    std::cout << "Failed to fetch vote information.\n";
-                }
-                break;
+            // Extract and print the votehash
+            if (jsonResponse.contains("votehash")) {
+                std::cout << "Your votehash: " << jsonResponse["votehash"] << std::endl;
+            } else {
+                std::cout << "votehash not found in response.\n";
             }
+        } catch (json::parse_error& e) {
+            std::cout << "Failed to parse JSON response: " << e.what() << std::endl;
+        }
+    } else {
+        std::cout << "Failed to fetch vote information.\n";
+    }
+    break;
+}
+
             
             case 5:{ // Exit
                 std::cout << "Exiting...\n";
