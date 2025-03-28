@@ -53,6 +53,105 @@ void MerkleTree::clearInternalNodes() {
     
     root = nullptr;
 }
+// Verify that all node hashes are correctly computed
+bool MerkleTree::verifyNodeHashes() {
+    //std::lock_guard<std::mutex> lock(tree_mutex);
+    std::cout<<"verifying now"<<std::endl;
+
+    return verifyNodeHashesRecursive(root);
+}
+
+bool MerkleTree::verifyNodeHashesRecursive(Node* node) {
+    if (!node) return true; // Base case: empty node
+
+    // Check if it's a leaf node
+    if (!node->left && !node->right) { // More reliable leaf check
+        std::string expectedHash = sha256(node->userHash + node->voteHash);
+        return node->hash == expectedHash;
+    }
+
+    // Recursively verify child nodes
+    bool leftValid = verifyNodeHashesRecursive(node->left);
+    bool rightValid = verifyNodeHashesRecursive(node->right);
+
+    if (!leftValid || !rightValid) return false; // If any child is invalid
+
+    std::string leftHash = node->left ? node->left->hash : "";
+    std::string rightHash = node->right ? node->right->hash : ""; // Fixed from leftHash
+
+    std::string expectedHash = sha256(leftHash + rightHash);
+    return node->hash == expectedHash;
+}
+
+
+MerkleTree::Node* MerkleTree::findNodeByUserHash(const std::string& userHash) {
+   //
+   //  std::lock_guard<std::mutex> lock(tree_mutex);
+    
+    // Search through leaf nodes to find the one with matching userHash
+    for (auto leaf : leaves) {
+        if (leaf->userHash == userHash) {
+            return leaf;
+        }
+    }
+    
+    return nullptr; // Node not found
+}
+
+std::string MerkleTree::getNodeInfo(const std::string& userHash) {
+    Node* node = findNodeByUserHash(userHash);
+    
+    if (!node) {
+        return ""; // Node not found
+    }
+    
+    // Create a JSON string with all node information
+    std::stringstream json;
+    json << "{";
+    json << "\"userHash\":\"" << node->userHash << "\",";
+    json << "\"voteHash\":\"" << node->voteHash << "\",";
+    json << "\"nodeHash\":\"" << node->hash << "\",";
+    
+    // Find the node's position in the tree
+    int nodeIndex = -1;
+    for (size_t i = 0; i < leaves.size(); i++) {
+        if (leaves[i] == node) {
+            nodeIndex = i;
+            break;
+        }
+    }
+    
+    json << "\"nodeIndex\":" << nodeIndex << ",";
+    
+    // Get the path from this node to the root
+    json << "\"pathToRoot\":[";
+    
+    // This is a simplified path calculation
+    // In a real implementation, you'd need to traverse the tree
+    // to build the actual path from leaf to root
+    
+    Node* current = node;
+    std::vector<std::string> path;
+    
+    // Simplified path generation - in a real implementation,
+    // you would need to traverse up the tree
+    if (root) {
+        path.push_back(root->hash);
+    }
+    
+    for (size_t i = 0; i < path.size(); i++) {
+        json << "\"" << path[i] << "\"";
+        if (i < path.size() - 1) {
+            json << ",";
+        }
+    }
+    
+    json << "],";
+    json << "\"totalNodes\":" << leaves.size();
+    json << "}";
+    
+    return json.str();
+}
 
 void MerkleTree::printTree() {
     std::lock_guard<std::mutex> lock(tree_mutex);
@@ -148,6 +247,19 @@ void MerkleTree::addVote(const std::string& userHash, const std::string& voteHas
         root = buildTreeFromLeaves();
         
         std::cout << "Vote added to Merkle tree. New leaf count: " << leaves.size() << std::endl;
+
+        // Verify all node hashes   
+        std::cout << "Verifying all node hashes... ";
+        bool ans=verifyNodeHashes();
+        if(ans==true)
+        {
+            std::cout<<"verified"<<std::endl;
+        }
+        else
+        {
+            std::cout<<"not verified"<<std::endl;
+        }
+
     } catch (const std::exception& e) {
         std::cerr << "Error adding vote to Merkle tree: " << e.what() << std::endl;
         // If leaf was added but tree building failed, remove the leaf
@@ -157,7 +269,6 @@ void MerkleTree::addVote(const std::string& userHash, const std::string& voteHas
         }
     }
 }
-
 // Get the current root hash
 std::string MerkleTree::getRootHash() {
     std::lock_guard<std::mutex> lock(tree_mutex);

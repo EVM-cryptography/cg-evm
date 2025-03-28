@@ -27,6 +27,8 @@ private:
     void clearInternalNodes();
     void printTreeRecursive(Node* node, int depth);
     int calculateTreeHeight(Node* node);
+    bool verifyNodeHashesRecursive(Node* node);
+
 public:
     MerkleTree() : root(nullptr) {}
     ~MerkleTree();
@@ -36,7 +38,9 @@ public:
     int getLeafCount();
     std::string serializeToJson();
     void printTree();
-
-}; // <-- Added semicolon here
+    Node* findNodeByUserHash(const std::string& userHash);
+    std::string getNodeInfo(const std::string& userHash);
+    bool verifyNodeHashes();
+};
 
 #endif
