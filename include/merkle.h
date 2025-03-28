@@ -6,7 +6,7 @@
 #include <mutex>
 
 class MerkleTree {
-private:
+public:
     struct Node {
         std::string hash;
         std::string userHash;
