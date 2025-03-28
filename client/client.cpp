@@ -84,7 +84,8 @@ int main() {
                   << "1. Register\n"
                   << "2. Login\n"
                   << "3. Cast Vote\n"
-                  << "4. Exit\n"
+                  <<"4.verify your vote\n"
+                  << "5. Exit\n"
                   << "Enter your choice: ";
         std::getline(std::cin, input);
         
@@ -207,7 +208,9 @@ int main() {
                                                   aes256_encrypt(sessionUID, sessionH2) + " " +
                                                   sha256(vote) + " " + 
                                                   sessionHashUID);
-                
+                std::cout<<"hash for BJP="<<sha256("BJP")<<std::endl;
+                std::cout<<"hash for INC="<<sha256("INC")<<std::endl;
+
                 std::cout << "Server: " << response << std::endl;
                 
                 if(response.find("SUCCESS") != std::string::npos) {
@@ -215,8 +218,7 @@ int main() {
                     hasVoted = true;
                 }
                 break;
-            }
-                
+            }  
             case 4: // Exit
                 std::cout << "Exiting...\n";
                 return 0;

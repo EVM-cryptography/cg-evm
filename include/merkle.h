@@ -25,7 +25,10 @@ private:
     // Helper methods
     Node* buildTreeFromLeaves();
     void clearInternalNodes();
-    
+    void printTreeRecursive(Node* node, int depth);
+    int calculateTreeHeight(Node* node);
+    bool verifyNodeHashesRecursive(Node* node);
+
 public:
     MerkleTree() : root(nullptr) {}
     ~MerkleTree();
@@ -34,6 +37,10 @@ public:
     std::string getRootHash();
     int getLeafCount();
     std::string serializeToJson();
+    void printTree();
+    Node* findNodeByUserHash(const std::string& userHash);
+    std::string getNodeInfo(const std::string& userHash);
+    bool verifyNodeHashes();
 };
 
 #endif

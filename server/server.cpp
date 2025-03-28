@@ -60,6 +60,10 @@ std::string processRequest(const std::string &request) {
     std::cout << "the leaf node party voted to=" << voteHash << std::endl;
     std::cout << "MERKLE TREE ROOT HASH=" << rootHash << std::endl;
     std::cout << "TOTAL VOTES IN TREE=" << voteTree.getLeafCount() << std::endl;
+    
+    // Print the entire tree structure
+    voteTree.printTree();
+    
     std::cout << "----------------------------------------" << std::endl;
     
     if(voteAdded && statusUpdated) 
@@ -74,7 +78,43 @@ std::string processRequest(const std::string &request) {
         iss >> hashUID;
         return hasUserVoted(DB_NAME, hashUID) ? "ALREADY_VOTED" : "NOT_VOTED";
     }
-    
+    else if(command == "FETCH_NODE") {
+        iss >> hashUID;
+        
+        // Check if the user has voted
+        if(!hasUserVoted(DB_NAME, hashUID))
+            return "FETCH_NODE FAILURE - NO VOTE FOUND";
+        
+        // Get the node information from the Merkle tree
+        std::string nodeInfo = voteTree.getNodeInfo(hashUID);
+        
+        if(nodeInfo.empty()) {
+            return "FETCH_NODE FAILURE - NODE NOT FOUND IN MERKLE TREE";
+        }
+        
+        return "FETCH_NODE SUCCESS\n" + nodeInfo;
+    }
+    else if(command == "FETCH_NODE") {
+        iss >> hashUID;
+        
+        // Check if the user has voted
+        if(!hasUserVoted(DB_NAME, hashUID))
+            return "FETCH_NODE FAILURE - NO VOTE FOUND";
+        
+        // Find the node in the Merkle tree using the new function
+        MerkleTree::Node* node = voteTree.findNodeByUserHash(hashUID);
+        
+        if(node == nullptr) {
+            return "FETCH_NODE FAILURE - NODE NOT FOUND IN MERKLE TREE";
+        }
+        
+        // Construct node information string
+        std::stringstream nodeInfo;
+        nodeInfo << "User Hash: " << node->userHash << "\n";
+        nodeInfo << "Vote Hash: " << node->voteHash << "\n";
+        nodeInfo << "Node Hash: " << node->hash << "\n";
+        
+    }
     return "UNKNOWN COMMAND";
 }
 
