@@ -6,10 +6,37 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <stdexcept>
+#include <termios.h>
 
+#include "json.hpp"
 #define SERVER_PORT 8080
 #define SERVER_IP "127.0.0.1"
 #define MAX_RETRIES 3
+
+// Function to configure terminal for single character input
+void enableRawMode() {
+    termios term;
+    tcgetattr(STDIN_FILENO, &term);
+    term.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &term);
+}
+
+// Function to restore terminal to normal mode
+void disableRawMode() {
+    termios term;
+    tcgetattr(STDIN_FILENO, &term);
+    term.c_lflag |= ICANON | ECHO;
+    tcsetattr(STDIN_FILENO, TCSANOW, &term);
+}
+
+// Function to get a single character without echoing
+char getch() {
+    char buf = 0;
+    if (read(STDIN_FILENO, &buf, 1) < 0)
+        return 0;
+    return buf;
+}
+
 
 // Send request to server with retry mechanism
 std::string sendRequest(const std::string &request) {
@@ -57,7 +84,8 @@ int main() {
                   << "1. Register\n"
                   << "2. Login\n"
                   << "3. Cast Vote\n"
-                  << "4. Exit\n"
+                  <<"4.verify your vote\n"
+                  << "5. Exit\n"
                   << "Enter your choice: ";
         std::getline(std::cin, input);
         
@@ -74,10 +102,24 @@ int main() {
                 std::cout << "Enter UID: ";
                 std::getline(std::cin, input);
                 std::string uid = input;
-                
-                std::cout << "Enter Password: ";
-                std::getline(std::cin, input);
-                std::string pwd = input;
+         std::cout << "Enter Password: " << std::flush;  // Force immediate display
+
+    std::string pwd;
+    char ch;
+    enableRawMode();
+    while ((ch = getch()) != '\n') {  // Read until Enter key is pressed
+        if (ch == 127 || ch == 8) {  // Handle backspace (127 or 8)
+            if (!pwd.empty()) {
+                pwd.pop_back();
+                std::cout << "\b \b";
+            }
+        } else {
+            pwd.push_back(ch);
+            std::cout << '*';
+        }
+    }
+    disableRawMode();
+    std::cout << std::endl;
                 
                 std::string response = sendRequest("REGISTER " + sha256(uid) + " " + sha256(pwd));
                 std::cout << "Server: " << response << std::endl;
@@ -89,9 +131,24 @@ int main() {
                 std::getline(std::cin, input);
                 std::string uid = input;
                 
-                std::cout << "Enter Password: ";
-                std::getline(std::cin, input);
-                std::string pwd = input;
+               std::cout << "Enter Password: " << std::flush;  // Force immediate display
+
+    std::string pwd;
+    char ch;
+    enableRawMode();
+    while ((ch = getch()) != '\n') {  // Read until Enter key is pressed
+        if (ch == 127 || ch == 8) {  // Handle backspace (127 or 8)
+            if (!pwd.empty()) {
+                pwd.pop_back();
+                std::cout << "\b \b";
+            }
+        } else {
+            pwd.push_back(ch);
+            std::cout << '*';
+        }
+    }
+    disableRawMode();
+    std::cout << std::endl;
                 
                 sessionHashUID = sha256(uid);
                 std::string response = sendRequest("LOGIN " + sessionHashUID + " " + sha256(pwd));
@@ -151,7 +208,9 @@ int main() {
                                                   aes256_encrypt(sessionUID, sessionH2) + " " +
                                                   sha256(vote) + " " + 
                                                   sessionHashUID);
-                
+                std::cout<<"hash for BJP="<<sha256("BJP")<<std::endl;
+                std::cout<<"hash for INC="<<sha256("INC")<<std::endl;
+
                 std::cout << "Server: " << response << std::endl;
                 
                 if(response.find("SUCCESS") != std::string::npos) {
@@ -159,12 +218,53 @@ int main() {
                     hasVoted = true;
                 }
                 break;
+            }  
+
+case 4: { // Fetch Vote Information
+    if (!loggedIn) {
+        std::cout << "Please login first.\n";
+        break;
+    }
+
+    // Ask for username and password
+    std::string username, password;
+    std::cout << "Enter your username: ";
+    std::cin >> username;
+    std::cout << "Enter your password: ";
+    std::cin >> password; // Password isn't used for hashing, only for validation if needed
+
+    // Hash the username
+    std::string hashUID = sha256(username); // Assuming you have a sha256() function
+
+    // Send request to fetch vote information
+    std::string response = sendRequest("FETCH_NODE " + hashUID);
+    std::cout << "Server: " << response << std::endl;
+
+    if (response.find("SUCCESS") != std::string::npos) {
+        try {
+            // Parse the JSON response
+            json jsonResponse = json::parse(response);
+            
+            // Extract and print the votehash
+            if (jsonResponse.contains("votehash")) {
+                std::cout << "Your votehash: " << jsonResponse["votehash"] << std::endl;
+            } else {
+                std::cout << "votehash not found in response.\n";
             }
-                
-            case 4: // Exit
+        } catch (json::parse_error& e) {
+            std::cout << "Failed to parse JSON response: " << e.what() << std::endl;
+        }
+    } else {
+        std::cout << "Failed to fetch vote information.\n";
+    }
+    break;
+}
+
+            
+            case 5:{ // Exit
                 std::cout << "Exiting...\n";
                 return 0;
-                
+            }
             default:
                 std::cout << "Invalid choice. Try again.\n";
         }

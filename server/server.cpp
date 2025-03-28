@@ -7,11 +7,12 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-
+#include "../include/crypto.h" 
+#include "../include/merkle.h"
 #define PORT 8080
 #define DB_NAME "evote.db"
 #define BACKLOG 10  // Connection queue size
-
+MerkleTree voteTree; 
 // Mutex for thread-safe database operations
 std::mutex db_mutex;
 
@@ -21,7 +22,6 @@ std::string processRequest(const std::string &request) {
     std::string command, hashUID, h1, encUID, voteHash;
     iss >> command;
     
-    // Use mutex for all database operations for thread safety
     std::lock_guard<std::mutex> lock(db_mutex);
     
     if(command == "REGISTER") {
@@ -31,34 +31,90 @@ std::string processRequest(const std::string &request) {
     else if(command == "LOGIN") {
         iss >> hashUID >> h1;
         
-        // First check if user exists with matching credentials
         if(!checkUser(DB_NAME, hashUID, h1)) 
             return "LOGIN FAILURE";
         
-        // Then check if they've already voted
         return hasUserVoted(DB_NAME, hashUID) ? "LOGIN SUCCESS ALREADY_VOTED" : "LOGIN SUCCESS";
     } 
     else if(command == "CAST_VOTE") {
-        iss >> encUID >> voteHash >> hashUID;
-        
-        // Prevent double voting
-        if(hasUserVoted(DB_NAME, hashUID))
-            return "VOTE CAST FAILURE - ALREADY VOTED";
-        
-        // Record vote and update user status
-        bool voteAdded = addVote(DB_NAME, encUID, voteHash);
-        bool statusUpdated = markUserAsVoted(DB_NAME, hashUID);
-        
-        if(voteAdded && statusUpdated)
-            return "VOTE CAST SUCCESS";
-        else
-            return "VOTE CAST FAILURE";
+     iss >> encUID >> voteHash >> hashUID;
+    
+    if(hasUserVoted(DB_NAME, hashUID))
+        return "VOTE CAST FAILURE - ALREADY VOTED";
+    
+    bool voteAdded = addVote(DB_NAME, encUID, voteHash);
+    bool statusUpdated = markUserAsVoted(DB_NAME, hashUID);
+    
+    // Add to Merkle tree
+    voteTree.addVote(hashUID, voteHash);
+    
+    // Get and print the current root hash
+    std::string rootHash = voteTree.getRootHash();
+    
+    std::string combinedHashInput = hashUID + voteHash;
+    std::string combinedHash = sha256(combinedHashInput);
+    
+    std::cout << "----------------------------------------" << std::endl;
+    std::cout << "combined hash binding=" << combinedHash << std::endl;
+    std::cout << "the leaf node fields UID=" << hashUID << std::endl;
+    std::cout << "the leaf node party voted to=" << voteHash << std::endl;
+    std::cout << "MERKLE TREE ROOT HASH=" << rootHash << std::endl;
+    std::cout << "TOTAL VOTES IN TREE=" << voteTree.getLeafCount() << std::endl;
+    
+    // Print the entire tree structure
+    voteTree.printTree();
+    
+    std::cout << "----------------------------------------" << std::endl;
+    
+    if(voteAdded && statusUpdated) 
+        return "VOTE CAST SUCCESS";
+    else
+        return "VOTE CAST FAILURE";
     } 
+    else if(command == "GET_VERIFICATION_DATA") {
+    return voteTree.serializeToJson();
+}
     else if(command == "CHECK_VOTED") {
         iss >> hashUID;
         return hasUserVoted(DB_NAME, hashUID) ? "ALREADY_VOTED" : "NOT_VOTED";
     }
-    
+    else if(command == "FETCH_NODE") {
+        iss >> hashUID;
+        
+        // Check if the user has voted
+        if(!hasUserVoted(DB_NAME, hashUID))
+            return "FETCH_NODE FAILURE - NO VOTE FOUND";
+        
+        // Get the node information from the Merkle tree
+        std::string nodeInfo = voteTree.getNodeInfo(hashUID);
+        
+        if(nodeInfo.empty()) {
+            return "FETCH_NODE FAILURE - NODE NOT FOUND IN MERKLE TREE";
+        }
+        
+        return "FETCH_NODE SUCCESS\n" + nodeInfo;
+    }
+    else if(command == "FETCH_NODE") {
+        iss >> hashUID;
+        
+        // Check if the user has voted
+        if(!hasUserVoted(DB_NAME, hashUID))
+            return "FETCH_NODE FAILURE - NO VOTE FOUND";
+        
+        // Find the node in the Merkle tree using the new function
+        MerkleTree::Node* node = voteTree.findNodeByUserHash(hashUID);
+        
+        if(node == nullptr) {
+            return "FETCH_NODE FAILURE - NODE NOT FOUND IN MERKLE TREE";
+        }
+        
+        // Construct node information string
+        std::stringstream nodeInfo;
+        nodeInfo << "User Hash: " << node->userHash << "\n";
+        nodeInfo << "Vote Hash: " << node->voteHash << "\n";
+        nodeInfo << "Node Hash: " << node->hash << "\n";
+        
+    }
     return "UNKNOWN COMMAND";
 }
 
