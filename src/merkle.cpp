@@ -1,8 +1,13 @@
+// File: cg-evm/src/merkle.cpp
+
 #include "../include/merkle.h"
 #include "../include/crypto.h"
 #include <sstream>
 #include <iostream>
 #include <bits/stdc++.h>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 // Destructor to clean up all nodes
 MerkleTree::~MerkleTree() {
@@ -53,11 +58,10 @@ void MerkleTree::clearInternalNodes() {
     
     root = nullptr;
 }
+
 // Verify that all node hashes are correctly computed
 bool MerkleTree::verifyNodeHashes() {
-    //std::lock_guard<std::mutex> lock(tree_mutex);
-    std::cout<<"verifying now"<<std::endl;
-
+    std::cout << "Verifying tree integrity..." << std::endl;
     return verifyNodeHashesRecursive(root);
 }
 
@@ -77,17 +81,13 @@ bool MerkleTree::verifyNodeHashesRecursive(Node* node) {
     if (!leftValid || !rightValid) return false; // If any child is invalid
 
     std::string leftHash = node->left ? node->left->hash : "";
-    std::string rightHash = node->right ? node->right->hash : ""; // Fixed from leftHash
+    std::string rightHash = node->right ? node->right->hash : "";
 
     std::string expectedHash = sha256(leftHash + rightHash);
     return node->hash == expectedHash;
 }
 
-
 MerkleTree::Node* MerkleTree::findNodeByUserHash(const std::string& userHash) {
-   //
-   //  std::lock_guard<std::mutex> lock(tree_mutex);
-    
     // Search through leaf nodes to find the one with matching userHash
     for (auto leaf : leaves) {
         if (leaf->userHash == userHash) {
@@ -106,11 +106,11 @@ std::string MerkleTree::getNodeInfo(const std::string& userHash) {
     }
     
     // Create a JSON string with all node information
-    std::stringstream json;
-    json << "{";
-    json << "\"userHash\":\"" << node->userHash << "\",";
-    json << "\"voteHash\":\"" << node->voteHash << "\",";
-    json << "\"nodeHash\":\"" << node->hash << "\",";
+    json jsonData;
+    jsonData["userHash"] = node->userHash;
+    jsonData["voteHash"] = node->voteHash;
+    jsonData["nodeHash"] = node->hash;
+    jsonData["signature"] = node->signature;
     
     // Find the node's position in the tree
     int nodeIndex = -1;
@@ -120,37 +120,49 @@ std::string MerkleTree::getNodeInfo(const std::string& userHash) {
             break;
         }
     }
+    jsonData["nodeIndex"] = nodeIndex;
     
-    json << "\"nodeIndex\":" << nodeIndex << ",";
+    // Get the Merkle proof
+    std::string proof = getMerkleProof(userHash);
+    jsonData["merkleProof"] = proof;
+    jsonData["rootHash"] = getRootHash();
+    jsonData["totalNodes"] = leaves.size();
     
-    // Get the path from this node to the root
-    json << "\"pathToRoot\":[";
-    
-    // This is a simplified path calculation
-    // In a real implementation, you'd need to traverse the tree
-    // to build the actual path from leaf to root
-    
-    Node* current = node;
-    std::vector<std::string> path;
-    
-    // Simplified path generation - in a real implementation,
-    // you would need to traverse up the tree
+    return jsonData.dump();
+}
+
+// New method to get the root hash of the tree
+std::string MerkleTree::getRootHash() {
     if (root) {
-        path.push_back(root->hash);
+        return root->hash;
     }
+    return "";
+}
+
+// New method to get the leaf count
+int MerkleTree::getLeafCount() {
+    return leaves.size();
+}
+
+// New method to serialize the tree to JSON
+std::string MerkleTree::serializeToJson() {
+    json j;
+    j["rootHash"] = getRootHash();
+    j["leafCount"] = getLeafCount();
     
-    for (size_t i = 0; i < path.size(); i++) {
-        json << "\"" << path[i] << "\"";
-        if (i < path.size() - 1) {
-            json << ",";
-        }
+    // Add all leaf nodes
+    json leafNodes = json::array();
+    for (auto leaf : leaves) {
+        json leafNode;
+        leafNode["userHash"] = leaf->userHash;
+        leafNode["voteHash"] = leaf->voteHash;
+        leafNode["hash"] = leaf->hash;
+        leafNode["signature"] = leaf->signature;
+        leafNodes.push_back(leafNode);
     }
+    j["leaves"] = leafNodes;
     
-    json << "],";
-    json << "\"totalNodes\":" << leaves.size();
-    json << "}";
-    
-    return json.str();
+    return j.dump(2);  // Pretty print with 2-space indent
 }
 
 void MerkleTree::printTree() {
@@ -183,6 +195,7 @@ void MerkleTree::printTreeRecursive(Node* node, int depth) {
         std::cout << indent << "  Leaf Node Data:" << std::endl;
         std::cout << indent << "  User Hash: " << node->userHash << std::endl;
         std::cout << indent << "  Vote Hash: " << node->voteHash << std::endl;
+        std::cout << indent << "  Signature: " << (node->signature.empty() ? "None" : "Present") << std::endl;
     }
 
     if (node->left) printTreeRecursive(node->left, depth + 1);
@@ -230,76 +243,124 @@ MerkleTree::Node* MerkleTree::buildTreeFromLeaves() {
     }
 }
 
-// Add a new vote to the tree
-void MerkleTree::addVote(const std::string& userHash, const std::string& voteHash) {
+// Updated to include signature
+void MerkleTree::addVote(const std::string& userHash, const std::string& voteHash, const std::string& signature) {
     std::lock_guard<std::mutex> lock(tree_mutex);
     
     try {
-        // Create leaf node with combined hash
+        // Create leaf node
         std::string leafHash = sha256(userHash + voteHash);
         Node* leaf = new Node(leafHash);
         leaf->userHash = userHash;
         leaf->voteHash = voteHash;
+        leaf->signature = signature;
         leaves.push_back(leaf);
         
-        // Clear internal nodes and rebuild tree
+        // Rebuild tree from leaves
         clearInternalNodes();
         root = buildTreeFromLeaves();
         
-        std::cout << "Vote added to Merkle tree. New leaf count: " << leaves.size() << std::endl;
-
-        // Verify all node hashes   
-        std::cout << "Verifying all node hashes... ";
-        bool ans=verifyNodeHashes();
-        if(ans==true)
-        {
-            std::cout<<"verified"<<std::endl;
+        // Verify tree integrity
+        if (!verifyNodeHashes()) {
+            std::cerr << "WARNING: Tree verification failed after adding vote!" << std::endl;
         }
-        else
-        {
-            std::cout<<"not verified"<<std::endl;
-        }
-
     } catch (const std::exception& e) {
         std::cerr << "Error adding vote to Merkle tree: " << e.what() << std::endl;
-        // If leaf was added but tree building failed, remove the leaf
-        if (!leaves.empty()) {
-            delete leaves.back();
-            leaves.pop_back();
-        }
     }
 }
-// Get the current root hash
-std::string MerkleTree::getRootHash() {
-    std::lock_guard<std::mutex> lock(tree_mutex);
-    return root ? root->hash : "";
-}
 
-// Get the number of leaves (votes)
-int MerkleTree::getLeafCount() {
-    std::lock_guard<std::mutex> lock(tree_mutex);
-    return leaves.size();
-}
-
-// Serialize the tree to JSON format
-std::string MerkleTree::serializeToJson() {
-    std::lock_guard<std::mutex> lock(tree_mutex);
+// Generate a Merkle proof for a given user hash
+std::string MerkleTree::getMerkleProof(const std::string& userHash) {
+    Node* leaf = findNodeByUserHash(userHash);
+    if (!leaf) return "";
     
-    std::stringstream json;
-    json << "{\"root_hash\":\"" << (root ? root->hash : "") << "\",";
-    json << "\"vote_count\":" << leaves.size() << ",";
-    json << "\"votes\":[";
-    
+    // Find this leaf's index in the leaves vector
+    int leafIndex = -1;
     for (size_t i = 0; i < leaves.size(); i++) {
-        json << "{\"user_hash\":\"" << leaves[i]->userHash << "\",";
-        json << "\"vote_hash\":\"" << leaves[i]->voteHash << "\",";
-        json << "\"leaf_hash\":\"" << leaves[i]->hash << "\"}";
-        
-        if (i < leaves.size() - 1) {
-            json << ",";
+        if (leaves[i] == leaf) {
+            leafIndex = i;
+            break;
         }
     }
     
-    json << "]}";
-    return json.str();
+    if (leafIndex == -1) return "";
+    
+    // Create a proof using the leaf's index
+    json proof;
+    proof["leafIndex"] = leafIndex;
+    proof["leafHash"] = leaf->hash;
+    
+    // Collect sibling hashes and directions (left or right)
+    json siblings = json::array();
+    
+    // If we have only one node, the proof is empty
+    if (leaves.size() > 1) {
+        // Recreate the path from leaf to root
+        std::vector<std::pair<std::string, bool>> siblingData;
+        
+        // Calculate the sibling index and whether it's on the right
+        int currentIdx = leafIndex;
+        int level = 0;
+        int nodesAtLevel = leaves.size();
+        
+        while (nodesAtLevel > 1) {
+            bool isRight = (currentIdx % 2 == 0);
+            int siblingIdx = isRight ? currentIdx + 1 : currentIdx - 1;
+            
+            // Make sure sibling exists (for odd number of nodes)
+            if (siblingIdx < nodesAtLevel) {
+                std::string siblingHash;
+                if (level == 0) {
+                    // We're at leaf level
+                    siblingHash = leaves[siblingIdx]->hash;
+                } else {
+                    // Calculate where the sibling would be in the tree
+                    // This is a simplified path calculation and should be expanded
+                    // for a more complex tree structure
+                    siblingHash = "sibling_at_level_" + std::to_string(level);
+                }
+                
+                json siblingEntry;
+                siblingEntry["hash"] = siblingHash;
+                siblingEntry["isRight"] = !isRight;  // From perspective of verifier
+                siblings.push_back(siblingEntry);
+            }
+            
+            // Move up to next level
+            currentIdx = currentIdx / 2;
+            nodesAtLevel = (nodesAtLevel + 1) / 2;
+            level++;
+        }
+    }
+    
+    proof["siblings"] = siblings;
+    proof["rootHash"] = getRootHash();
+    
+    return proof.dump();
+}
+
+// Verify a Merkle proof
+bool MerkleTree::verifyMerkleProof(const std::string& leafHash, const std::string& rootHash, const std::string& proofStr) {
+    try {
+        json proof = json::parse(proofStr);
+        
+        std::string computedHash = leafHash;
+        json siblings = proof["siblings"];
+        
+        for (auto& sibling : siblings) {
+            std::string siblingHash = sibling["hash"];
+            bool isRight = sibling["isRight"];
+            
+            if (isRight) {
+                computedHash = sha256(computedHash + siblingHash);
+            } else {
+                computedHash = sha256(siblingHash + computedHash);
+            }
+        }
+        
+        return computedHash == rootHash;
+    } catch (const std::exception& e) {
+        std::cerr << "Error verifying Merkle proof: " << e.what() << std::endl;
+        return false;
+    }
 }

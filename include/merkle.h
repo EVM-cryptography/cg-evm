@@ -11,6 +11,7 @@ public:
         std::string hash;
         std::string userHash;
         std::string voteHash;
+        std::string signature;  // New field for digital signature
         Node* left;
         Node* right;
         
@@ -33,7 +34,8 @@ public:
     MerkleTree() : root(nullptr) {}
     ~MerkleTree();
     
-    void addVote(const std::string& userHash, const std::string& voteHash);
+    // Updated to include signature
+    void addVote(const std::string& userHash, const std::string& voteHash, const std::string& signature = "");
     std::string getRootHash();
     int getLeafCount();
     std::string serializeToJson();
@@ -41,6 +43,10 @@ public:
     Node* findNodeByUserHash(const std::string& userHash);
     std::string getNodeInfo(const std::string& userHash);
     bool verifyNodeHashes();
+    
+    // New function for generating proofs
+    std::string getMerkleProof(const std::string& userHash);
+    bool verifyMerkleProof(const std::string& leafHash, const std::string& rootHash, const std::string& proof);
 };
 
 #endif

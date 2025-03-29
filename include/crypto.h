@@ -2,15 +2,30 @@
 #define CRYPTO_H
 
 #include <string>
+#include <openssl/evp.h>
+#include <openssl/rsa.h>
+#include <vector>
 
-// Computes the SHA256 hash of the input string and returns its hex string.
+// Existing functions
 std::string sha256(const std::string &input);
-
-// Encrypts plaintext using AES256-CBC with the provided key (as a hex string).
-// Returns the ciphertext as a hex string.
 std::string aes256_encrypt(const std::string &plaintext, const std::string &key);
-
-// Decrypts a hex-encoded ciphertext using AES256-CBC with the provided key (as a hex string).
 std::string aes256_decrypt(const std::string &ciphertext, const std::string &key);
+
+// New functions for digital signatures
+bool generateKeyPair(std::string& publicKeyPEM, std::string& privateKeyPEM);
+std::string signData(const std::string& data, const std::string& privateKeyPEM);
+bool verifySignature(const std::string& data, const std::string& signature, const std::string& publicKeyPEM);
+
+// Base64 encoding/decoding
+std::string base64Encode(const unsigned char* buffer, size_t length);
+std::vector<unsigned char> base64Decode(const std::string& encoded);
+
+// Utility functions
+std::string bytesToHex(const unsigned char* data, size_t len);
+std::vector<unsigned char> hexToBytes(const std::string &hex);
+
+// Key storage helpers
+bool saveKeyToFile(const std::string& filename, const std::string& key, const std::string& password);
+std::string loadKeyFromFile(const std::string& filename, const std::string& password);
 
 #endif
