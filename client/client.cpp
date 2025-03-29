@@ -8,7 +8,10 @@
 #include <stdexcept>
 #include <termios.h>
 
-#include "json.hpp"
+// Use the appropriate include based on how you installed the library
+#include <nlohmann/json.hpp>
+// Alias for easier use
+using json = nlohmann::json;
 #define SERVER_PORT 8080
 #define SERVER_IP "127.0.0.1"
 #define MAX_RETRIES 3
