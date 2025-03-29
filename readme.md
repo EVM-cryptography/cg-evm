@@ -15,18 +15,18 @@
 
 - Compile the server executable (outputs "server_bin"):
 
-`g++ -std=c++11 server/server.cpp src/database.cpp src/crypto.cpp src/merkle.cpp -Iinclude -o server_bin -lsqlite3 -lpthread -lssl -lcrypto`
+`g++ -std=c++17 server/server.cpp src/database.cpp src/crypto.cpp src/merkle.cpp -Iinclude -o server_bin -lsqlite3 -lpthread -lssl -lcrypto`
 
 - Compile the client executable (outputs "client_bin"):
 
-`g++ -std=c++11 client/client.cpp src/crypto.cpp -Iinclude -o client_bin -lssl -lcrypto`
+`g++ -std=c++17 client/client.cpp src/crypto.cpp -Iinclude -o client_bin -lssl -lcrypto`
 
 - Compile the second client (optional)
 `g++ -std=c++11 client/client2.cpp src/crypto.cpp -Iinclude -o client2_bin -lssl -lcrypto`
 
 - Compile the monitor executable (outputs "monitor_bin"):
 
-`g++ -std=c++11 monitor/monitor.cpp src/database.cpp -Iinclude -o monitor_bin -lsqlite3`
+`g++ -std=c++17 monitor/monitor.cpp src/database.cpp -Iinclude -o monitor_bin -lsqlite3`
 
 
 ## Common Isuue & Fix
