@@ -24,6 +24,7 @@
 - Compile the second client (optional)
 `g++ -std=c++11 client/client2.cpp src/crypto.cpp -Iinclude -o client2_bin -lssl -lcrypto`
 
+
 - Compile the monitor executable (outputs "monitor_bin"):
 
 `g++ -std=c++17 monitor/monitor.cpp src/database.cpp -Iinclude -o monitor_bin -lsqlite3`
@@ -43,3 +44,5 @@
 - SQLite3 development libraries
 - OpenSSL development libraries
 - POSIX Threads library
+
+Vivek
