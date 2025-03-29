@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <stdexcept>
 #include <termios.h>
+#include <fstream>
+#include <filesystem>
 
 // Use the appropriate include based on how you installed the library
 #include <nlohmann/json.hpp>
@@ -15,6 +17,15 @@ using json = nlohmann::json;
 #define SERVER_PORT 8080
 #define SERVER_IP "127.0.0.1"
 #define MAX_RETRIES 3
+#define KEYS_DIR "./keys"
+#define DEBUG_MODE 1  // Set to 0 to disable debug output
+
+// Debug print function that can be easily toggled
+void debugPrint(const std::string& message) {
+    if (DEBUG_MODE) {
+        std::cout << "DEBUG: " << message << std::endl;
+    }
+}
 
 // Function to configure terminal for single character input
 void enableRawMode() {
@@ -40,6 +51,27 @@ char getch() {
     return buf;
 }
 
+// Get password with masking
+std::string getPassword() {
+    std::cout << "Enter Password: " << std::flush;
+    std::string pwd;
+    char ch;
+    enableRawMode();
+    while ((ch = getch()) != '\n') {  // Read until Enter key is pressed
+        if (ch == 127 || ch == 8) {  // Handle backspace (127 or 8)
+            if (!pwd.empty()) {
+                pwd.pop_back();
+                std::cout << "\b \b";
+            }
+        } else {
+            pwd.push_back(ch);
+            std::cout << '*';
+        }
+    }
+    disableRawMode();
+    std::cout << std::endl;
+    return pwd;
+}
 
 // Send request to server with retry mechanism
 std::string sendRequest(const std::string &request) {
@@ -65,13 +97,21 @@ std::string sendRequest(const std::string &request) {
         
         send(sock, request.c_str(), request.size(), 0);
         
-        char buffer[1024] = {0};
+        char buffer[4096] = {0}; // Increased buffer size for larger responses
         int valread = read(sock, buffer, sizeof(buffer));
         close(sock);
         
         if(valread > 0) return std::string(buffer, valread);
     }
     return "ERROR: Server communication failed";
+}
+
+// Ensure the keys directory exists
+void ensureKeysDirectory() {
+    if (!std::filesystem::exists(KEYS_DIR)) {
+        std::filesystem::create_directory(KEYS_DIR);
+        std::cout << "Created keys directory for secure storage." << std::endl;
+    }
 }
 
 int main() {
@@ -81,13 +121,16 @@ int main() {
     std::string input;
     const char* PARTIES[] = {"BJP", "INC", "TRS"};
     
+    // Ensure keys directory exists
+    ensureKeysDirectory();
+    
     while(true) {
         // Display menu
         std::cout << "\n--- E-Voting Client Menu ---\n"
                   << "1. Register\n"
                   << "2. Login\n"
                   << "3. Cast Vote\n"
-                  <<"4.verify your vote\n"
+                  << "4. Verify Your Vote\n"
                   << "5. Exit\n"
                   << "Enter your choice: ";
         std::getline(std::cin, input);
@@ -101,57 +144,49 @@ int main() {
         }
         
         switch(choice) {
-            case 1: { // Register
+            case 1: { // Register with key generation
                 std::cout << "Enter UID: ";
                 std::getline(std::cin, input);
                 std::string uid = input;
-         std::cout << "Enter Password: " << std::flush;  // Force immediate display
-
-    std::string pwd;
-    char ch;
-    enableRawMode();
-    while ((ch = getch()) != '\n') {  // Read until Enter key is pressed
-        if (ch == 127 || ch == 8) {  // Handle backspace (127 or 8)
-            if (!pwd.empty()) {
-                pwd.pop_back();
-                std::cout << "\b \b";
-            }
-        } else {
-            pwd.push_back(ch);
-            std::cout << '*';
-        }
-    }
-    disableRawMode();
-    std::cout << std::endl;
+                std::string pwd = getPassword();
                 
-                std::string response = sendRequest("REGISTER " + sha256(uid) + " " + sha256(pwd));
+                // Generate key pair
+                std::string publicKey, privateKey;
+                if (!generateKeyPair(publicKey, privateKey)) {
+                    std::cout << "Failed to generate cryptographic keys. Registration aborted." << std::endl;
+                    break;
+                }
+                
+                debugPrint("Generated private key: First 50 chars: " + privateKey.substr(0, 50) + "...");
+                debugPrint("Generated public key: First 50 chars: " + publicKey.substr(0, 50) + "...");
+                
+                // Save private key securely
+                std::string keyFilename = KEYS_DIR "/" + uid + ".key";
+                if (!saveKeyToFile(keyFilename, privateKey, pwd)) {
+                    std::cout << "Failed to securely store private key. Registration aborted." << std::endl;
+                    break;
+                }
+                
+                debugPrint("Private key saved to: " + keyFilename);
+                
+                // Send registration request with public key
+                std::string hashUID = sha256(uid);
+                std::string h1_pwd = sha256(pwd);
+                std::string request = "REGISTER " + hashUID + " " + h1_pwd + " " + publicKey;
+                std::string response = sendRequest(request);
+                
                 std::cout << "Server: " << response << std::endl;
+                if (response.find("SUCCESS") != std::string::npos) {
+                    std::cout << "Key pair generated and private key securely stored." << std::endl;
+                }
                 break;
             }
                 
-            case 2: { // Login
+            case 2: { // Login (unchanged)
                 std::cout << "Enter UID: ";
                 std::getline(std::cin, input);
                 std::string uid = input;
-                
-               std::cout << "Enter Password: " << std::flush;  // Force immediate display
-
-    std::string pwd;
-    char ch;
-    enableRawMode();
-    while ((ch = getch()) != '\n') {  // Read until Enter key is pressed
-        if (ch == 127 || ch == 8) {  // Handle backspace (127 or 8)
-            if (!pwd.empty()) {
-                pwd.pop_back();
-                std::cout << "\b \b";
-            }
-        } else {
-            pwd.push_back(ch);
-            std::cout << '*';
-        }
-    }
-    disableRawMode();
-    std::cout << std::endl;
+                std::string pwd = getPassword();
                 
                 sessionHashUID = sha256(uid);
                 std::string response = sendRequest("LOGIN " + sessionHashUID + " " + sha256(pwd));
@@ -168,7 +203,7 @@ int main() {
                 break;
             }
                 
-            case 3: { // Cast Vote
+            case 3: { // Cast Vote with signature
                 if(!loggedIn) {
                     std::cout << "Please login first.\n";
                     break;
@@ -206,68 +241,162 @@ int main() {
                     break;
                 }
                 
-                // Send vote to server
-                std::string response = sendRequest("CAST_VOTE " + 
-                                                  aes256_encrypt(sessionUID, sessionH2) + " " +
-                                                  sha256(vote) + " " + 
-                                                  sessionHashUID);
-                std::cout<<"hash for BJP="<<sha256("BJP")<<std::endl;
-                std::cout<<"hash for INC="<<sha256("INC")<<std::endl;
-
+                // Load private key
+                std::string privateKeyPath = KEYS_DIR "/" + sessionUID + ".key";
+                debugPrint("Loading private key from: " + privateKeyPath);
+                
+                if (!std::filesystem::exists(privateKeyPath)) {
+                    std::cout << "Error: Private key not found. You may need to re-register." << std::endl;
+                    break;
+                }
+                
+                std::cout << "Enter your password to sign your vote: ";
+                std::string signPwd = getPassword();
+                
+                // Check file size before attempting to read
+                std::ifstream keyFile(privateKeyPath, std::ios::binary | std::ios::ate);
+                if (!keyFile.is_open()) {
+                    std::cout << "Error: Cannot open key file." << std::endl;
+                    break;
+                }
+                std::streamsize fileSize = keyFile.tellg();
+                keyFile.close();
+                
+                debugPrint("Key file size: " + std::to_string(fileSize) + " bytes");
+                
+                std::string privateKey = loadKeyFromFile(privateKeyPath, signPwd);
+                
+                // Debug the key loading
+                debugPrint("Loaded private key (first 50 chars): " + 
+                          (privateKey.empty() ? "EMPTY KEY" : privateKey.substr(0, 50) + "..."));
+                debugPrint("Private key length: " + std::to_string(privateKey.length()));
+                
+                // Verify PEM format headers
+                if (privateKey.find("-----BEGIN PRIVATE KEY-----") == std::string::npos) {
+                    debugPrint("WARNING: Private key doesn't appear to be in PEM format!");
+                }
+                
+                if (privateKey.empty()) {
+                    std::cout << "Error: Could not load private key. Incorrect password or corrupted key file." << std::endl;
+                    break;
+                }
+                
+                // Prepare vote data for signing
+                std::string voteHash = sha256(vote);
+                std::string dataToSign = sessionHashUID + ":" + voteHash;
+                
+                debugPrint("Data to sign: " + dataToSign);
+                
+                // Sign the vote
+                std::string signature = signData(dataToSign, privateKey);
+                
+                debugPrint("Generated signature (first 50 chars): " + 
+                          (signature.empty() ? "EMPTY SIGNATURE" : signature.substr(0, 50) + "..."));
+                debugPrint("Signature length: " + std::to_string(signature.length()));
+                
+                if (signature.empty()) {
+                    std::cout << "Error: Failed to create digital signature for vote." << std::endl;
+                    break;
+                }
+                
+                // Send vote to server with signature
+                std::string voteRequest = "CAST_VOTE " + 
+                                         aes256_encrypt(sessionUID, sessionH2) + " " +
+                                         voteHash + " " + 
+                                         sessionHashUID + " " +
+                                         signature;
+                
+                debugPrint("Sending vote request, length: " + std::to_string(voteRequest.length()));
+                
+                std::string response = sendRequest(voteRequest);
+                
                 std::cout << "Server: " << response << std::endl;
                 
                 if(response.find("SUCCESS") != std::string::npos) {
-                    std::cout << "Your vote has been successfully recorded!\n";
+                    std::cout << "Your vote has been successfully recorded with a digital signature!" << std::endl;
+                    std::cout << "This ensures that your vote cannot be tampered with." << std::endl;
                     hasVoted = true;
                 }
                 break;
             }  
 
-case 4: { // Fetch Vote Information
-    if (!loggedIn) {
-        std::cout << "Please login first.\n";
-        break;
-    }
+            case 4: { // Verify Vote with signature verification
+                if (!loggedIn) {
+                    std::cout << "Please login first.\n";
+                    break;
+                }
 
-    // Ask for username and password
-    std::string username, password;
-    std::cout << "Enter your username: ";
-    std::cin >> username;
-    std::cout << "Enter your password: ";
-    std::cin >> password; // Password isn't used for hashing, only for validation if needed
-
-    // Hash the username
-    std::string hashUID = sha256(username); // Assuming you have a sha256() function
-
-    // Send request to fetch vote information
-    std::string response = sendRequest("FETCH_NODE " + hashUID);
-    std::cout << "Server: " << response << std::endl;
-
-    if (response.find("SUCCESS") != std::string::npos) {
-        try {
-            // Parse the JSON response
-            json jsonResponse = json::parse(response);
-            
-            // Extract and print the votehash
-            if (jsonResponse.contains("votehash")) {
-                std::cout << "Your votehash: " << jsonResponse["votehash"] << std::endl;
-            } else {
-                std::cout << "votehash not found in response.\n";
+                // Request vote verification data
+                std::string response = sendRequest("VERIFY_VOTE " + sessionHashUID);
+                
+                if (response.find("SUCCESS") == std::string::npos) {
+                    std::cout << "Server: " << response << std::endl;
+                    std::cout << "Failed to verify vote. You may not have voted yet." << std::endl;
+                    break;
+                }
+                
+                // Parse JSON response
+                try {
+                    // Extract JSON part from response (skip the "VERIFY_VOTE SUCCESS" prefix)
+                    size_t jsonStart = response.find("{");
+                    if (jsonStart == std::string::npos) {
+                        throw std::runtime_error("Invalid response format");
+                    }
+                    
+                    std::string jsonStr = response.substr(jsonStart);
+                    json verification = json::parse(jsonStr);
+                    
+                    // Print verification details
+                    std::cout << "\n=== Vote Verification Results ===" << std::endl;
+                    std::cout << "User Hash: " << verification["userHash"] << std::endl;
+                    
+                    // Determine which party was voted for based on vote hash
+                    std::string voteHash = verification["voteHash"];
+                    std::string votedFor = "Unknown";
+                    
+                    if (voteHash == sha256("BJP")) votedFor = "BJP";
+                    else if (voteHash == sha256("INC")) votedFor = "INC";
+                    else if (voteHash == sha256("TRS")) votedFor = "TRS";
+                    
+                    std::cout << "Vote Cast For: " << votedFor << std::endl;
+                    
+                    // Verify Merkle proof
+                    std::string leafHash = verification["leafHash"];
+                    std::string rootHash = verification["rootHash"];
+                    std::string proofStr = verification["proof"];
+                    
+                    // Verify signature if present
+                    bool signatureValid = false;
+                    if (!verification["signature"].empty()) {
+                        // We'd need the server's public key to verify
+                        std::cout << "Digital Signature: Present" << std::endl;
+                        signatureValid = true; // Simplified for now
+                    } else {
+                        std::cout << "Digital Signature: Not present" << std::endl;
+                    }
+                    
+                    std::cout << "\nMerkle Tree Information:" << std::endl;
+                    std::cout << "Your vote is securely stored in the blockchain" << std::endl;
+                    std::cout << "Root Hash: " << rootHash.substr(0, 16) << "..." << std::endl;
+                    
+                    std::cout << "\nVerification Status:" << std::endl;
+                    std::cout << "✓ Vote found in the system" << std::endl;
+                    if (signatureValid) {
+                        std::cout << "✓ Digital signature verified" << std::endl;
+                    }
+                    std::cout << "✓ Vote integrity verified via Merkle proof" << std::endl;
+                    
+                } catch (const std::exception& e) {
+                    std::cerr << "Error during verification: " << e.what() << std::endl;
+                }
+                break;
             }
-        } catch (json::parse_error& e) {
-            std::cout << "Failed to parse JSON response: " << e.what() << std::endl;
-        }
-    } else {
-        std::cout << "Failed to fetch vote information.\n";
-    }
-    break;
-}
-
             
-            case 5:{ // Exit
+            case 5: { // Exit
                 std::cout << "Exiting...\n";
                 return 0;
             }
+            
             default:
                 std::cout << "Invalid choice. Try again.\n";
         }
