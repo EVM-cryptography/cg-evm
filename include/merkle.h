@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <mutex>
+#include <thread>
 
 class MerkleTree {
 public:
@@ -22,6 +23,8 @@ public:
     Node* root;
     std::vector<Node*> leaves;
     std::mutex tree_mutex;
+    bool running;
+    std::thread verificationThread;
     
     // Helper methods
     Node* buildTreeFromLeaves();
@@ -29,9 +32,10 @@ public:
     void printTreeRecursive(Node* node, int depth);
     int calculateTreeHeight(Node* node);
     bool verifyNodeHashesRecursive(Node* node);
+    bool verifyNodeSignature(Node* node, const std::string &dbName);
 
 public:
-    MerkleTree() : root(nullptr) {}
+    MerkleTree() : root(nullptr), running(false) {}
     ~MerkleTree();
     
     // Updated to include signature
@@ -47,6 +51,11 @@ public:
     // New function for generating proofs
     std::string getMerkleProof(const std::string& userHash);
     bool verifyMerkleProof(const std::string& leafHash, const std::string& rootHash, const std::string& proof);
+    
+    // New periodic verification functions
+    void startPeriodicVerification(const std::string &dbName);
+    void stopPeriodicVerification();
+    bool verifyTreeIntegrity(const std::string &dbName);
 };
 
 #endif

@@ -33,7 +33,8 @@
 - REGISTER FAILURE
     Delete the .db file and try to register again, caused by conflicting entries or missing attributes.
 
-
+#running the result.cpp
+g++ -std=c++17 result.cpp src/crypto.cpp -Iinclude -o result_bin -lsqlite3 -lssl -lcrypto
 ## Execution Order
 1. Start the server: `./server_bin`
 2. Start the monitor: `./monitor_bin`

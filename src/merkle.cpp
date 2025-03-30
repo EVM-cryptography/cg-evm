@@ -2,11 +2,13 @@
 
 #include "../include/merkle.h"
 #include "../include/crypto.h"
+#include "../include/database.h"
 #include <sstream>
 #include <iostream>
 #include <bits/stdc++.h>
 #include <nlohmann/json.hpp>
-
+#include <chrono>
+#include <thread>
 using json = nlohmann::json;
 
 // Destructor to clean up all nodes
@@ -81,10 +83,26 @@ bool MerkleTree::verifyNodeHashesRecursive(Node* node) {
     if (!leftValid || !rightValid) return false; // If any child is invalid
 
     std::string leftHash = node->left ? node->left->hash : "";
-    std::string rightHash = node->right ? node->right->hash : "";
+    std::string rightHash;
+    
+    // For nodes with only a left child (no right child), duplicate the left hash
+    // This matches our tree building logic for odd numbers of nodes
+    if (!node->right && node->left) {
+        rightHash = node->left->hash; // Duplicate the left hash
+    } else {
+        rightHash = node->right ? node->right->hash : "";
+    }
 
     std::string expectedHash = sha256(leftHash + rightHash);
-    return node->hash == expectedHash;
+    bool matches = node->hash == expectedHash;
+    
+    if (!matches) {
+        std::cout << "Internal node hash mismatch!" << std::endl;
+        std::cout << "  Expected: " << expectedHash << std::endl;
+        std::cout << "  Actual:   " << node->hash << std::endl;
+    }
+    
+    return matches;
 }
 
 MerkleTree::Node* MerkleTree::findNodeByUserHash(const std::string& userHash) {
@@ -363,4 +381,99 @@ bool MerkleTree::verifyMerkleProof(const std::string& leafHash, const std::strin
         std::cerr << "Error verifying Merkle proof: " << e.what() << std::endl;
         return false;
     }
+}
+void MerkleTree::startPeriodicVerification(const std::string &dbName) {
+    running = true;
+    verificationThread = std::thread([this, dbName]() {
+        while (running) {
+            bool treeValid = this->verifyTreeIntegrity(dbName);
+            
+            if (treeValid) {
+                std::cout << "==========================================" << std::endl;
+                std::cout << "Merkle Tree Integrity Check: PASSED" << std::endl;
+                std::cout << "Total nodes verified: " << this->getLeafCount() << std::endl;
+                std::cout << "Root hash: " << this->getRootHash() << std::endl;
+                std::cout << "==========================================" << std::endl;
+            } else {
+                std::cout << "==========================================" << std::endl;
+                std::cout << "!!! MERKLE TREE INTEGRITY CHECK FAILED !!!" << std::endl;
+                std::cout << "Tree may have been tampered with!" << std::endl;
+                std::cout << "==========================================" << std::endl;
+            }
+            
+            // Wait for 15 seconds
+            std::this_thread::sleep_for(std::chrono::seconds(15));
+        }
+    });
+}
+void MerkleTree::stopPeriodicVerification() {
+    running = false;
+    if (verificationThread.joinable()) {
+        verificationThread.join();
+    }
+}
+bool MerkleTree::verifyTreeIntegrity(const std::string &dbName) {
+    std::lock_guard<std::mutex> lock(tree_mutex);
+    
+    if (leaves.empty()) {
+        std::cout << "Tree is empty, nothing to verify." << std::endl;
+        return true;
+    }
+    
+    std::cout << "Starting comprehensive Merkle tree verification..." << std::endl;
+    
+    // Step 1: Verify all leaf nodes
+    bool leafNodesValid = true;
+    for (Node* leaf : leaves) {
+        // Verify leaf hash
+        std::string expectedHash = sha256(leaf->userHash + leaf->voteHash);
+        if (leaf->hash != expectedHash) {
+            std::cout << "Leaf node hash mismatch for user " << leaf->userHash << std::endl;
+            std::cout << "  Expected: " << expectedHash << std::endl;
+            std::cout << "  Actual:   " << leaf->hash << std::endl;
+            leafNodesValid = false;
+        }
+        
+        // Verify digital signature if present
+        if (!leaf->signature.empty()) {
+            if (!verifyNodeSignature(leaf, dbName)) {
+                std::cout << "Digital signature verification failed for user " << leaf->userHash << std::endl;
+                leafNodesValid = false;
+            }
+        }
+    }
+    
+    // Step 2: Verify all internal nodes (hash consistency)
+    bool internalNodesValid = verifyNodeHashesRecursive(root);
+    if (internalNodesValid==false)
+    {
+        std::cout << "Internal nodes are not valid" << std::endl;
+    }
+    return leafNodesValid && internalNodesValid;
+}
+
+bool MerkleTree::verifyNodeSignature(Node* node, const std::string &dbName) {
+    if (node->signature.empty()) {
+        return true; // No signature to verify
+    }
+    
+    // Get the user's public key from database
+    std::string publicKey = getUserPublicKey(dbName, node->userHash);
+    if (publicKey.empty()) {
+        std::cout << "Could not retrieve public key for user " << node->userHash << std::endl;
+        return false;
+    }
+    
+    // Recreate the data that was signed (userHash:voteHash)
+    std::string dataToVerify = node->userHash + ":" + node->voteHash;
+    
+    // Verify the signature
+    bool signatureValid = verifySignature(dataToVerify, node->signature, publicKey);
+    
+    if (!signatureValid) {
+        std::cout << "Signature verification failed for " << node->userHash << std::endl;
+        std::cout << "  Data: " << dataToVerify << std::endl;
+    }
+    
+    return signatureValid;
 }

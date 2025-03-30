@@ -12,7 +12,7 @@
 #include "../include/crypto.h"
 #include "../include/merkle.h"
 #include <nlohmann/json.hpp>
-
+#include <random>
 // For convenience
 using json = nlohmann::json;
 #define PORT 8080
@@ -267,6 +267,47 @@ std::string processRequest(const std::string &request) {
         
         return "VERIFY_VOTE SUCCESS\n" + response.dump(2);
     }
+    // Add to processRequest function
+else if(command == "TAMPER_TEST") {
+    iss >> hashUID;
+    
+    // Find the node for the given user
+    MerkleTree::Node* node = voteTree.findNodeByUserHash(hashUID);
+    if (!node) {
+        return "TAMPER_TEST FAILURE - USER NOT FOUND IN TREE";
+    }
+    
+    // Save original hash for reporting
+    std::string originalHash = node->hash;
+    
+    // Tamper with the hash by modifying random positions
+    std::string tamperedHash = node->hash;
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> posDist(0, tamperedHash.length() - 1);
+    std::uniform_int_distribution<> hexDist(0, 15);
+    
+    // Modify 3-5 random positions in the hash
+    int numChanges = 3 + (gen() % 3);
+    for (int i = 0; i < numChanges; i++) {
+        int position = posDist(gen);
+        char hexChar = "0123456789abcdef"[hexDist(gen)];
+        tamperedHash[position] = hexChar;
+    }
+    
+    // Apply the tampered hash
+    node->hash = tamperedHash;
+    
+    // Log the tampering for demonstration
+    std::cout << "=== SIMULATED ATTACK ===" << std::endl;
+    std::cout << "Tampered with node for user: " << hashUID << std::endl;
+    std::cout << "Original hash: " << originalHash << std::endl;
+    std::cout << "Tampered hash: " << tamperedHash << std::endl;
+    std::cout << "Changed " << numChanges << " positions" << std::endl;
+    std::cout << "=======================" << std::endl;
+    
+    return "TAMPER_TEST SUCCESS - Node has been tampered with.\nThe tree verification should detect this during the next integrity check.";
+}
     
     return "UNKNOWN COMMAND";
 }
@@ -294,7 +335,8 @@ int main() {
             return 1;
         }
     }
-    
+    std::cout << "Starting Merkle tree periodic verification..." << std::endl;
+    voteTree.startPeriodicVerification(DB_NAME);
     // Create and configure socket
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if(server_fd < 0) {
