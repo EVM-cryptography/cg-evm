@@ -213,7 +213,8 @@ You'll observe a mismatch in Merkle root — proving tampering!
 ## 👨‍💻 Authors
 
 - Dashrath Kumar
-- [Your Teammates' Names Here]
+- Herambh Tapper
+- Vivek linux
 
 ---
 
