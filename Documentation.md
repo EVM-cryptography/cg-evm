@@ -27,7 +27,6 @@ This project simulates a **secure electronic voting system** with:
 ## 🚀 Project Flow
 
 ```mermaid
-graph TD
     A[ User Registers] --> B[RSA Key Pair Generated]
     B --> C[ Private Key AES Encrypted]
     C --> D[Registration Request Sent to Server]
