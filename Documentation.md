@@ -229,4 +229,5 @@ MIT License
 
 ## 🎯 Screenshots or Demos
 
-> Add terminal screenshots or demo video link here if available.
+> Posting soon........
+
