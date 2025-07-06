@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🔄 Secure Voting Flow — Premium Animation</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(135deg, #0a0e1a 0%, #1a1f2e 50%, #0f1419 100%);
+      color: #e6edf3;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Animated background particles */
+    .bg-particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .particle {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: #58a6ff;
+      border-radius: 50%;
+      opacity: 0.3;
+      animation: float 8s infinite ease-in-out;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.3; }
+      50% { transform: translateY(-20px) rotate(180deg); opacity: 0.8; }
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 60px;
+      position: relative;
+    }
+
+    .header h1 {
+      font-size: clamp(2.5rem, 5vw, 4rem);
+      font-weight: 700;
+      background: linear-gradient(135deg, #58a6ff 0%, #79c0ff 50%, #a5f3fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 20px;
+      text-shadow: 0 0 30px rgba(88, 166, 255, 0.3);
+      animation: glow 3s ease-in-out infinite alternate;
+    }
+
+    @keyframes glow {
+      from { filter: drop-shadow(0 0 20px rgba(88, 166, 255, 0.3)); }
+      to { filter: drop-shadow(0 0 40px rgba(88, 166, 255, 0.6)); }
+    }
+
+    .header p {
+      font-size: 1.2rem;
+      color: #8b949e;
+      font-weight: 300;
+      max-width: 600px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    .flow-container {
+      position: relative;
+      background: rgba(22, 27, 34, 0.4);
+      border-radius: 24px;
+      padding: 40px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(88, 166, 255, 0.1);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      margin-bottom: 40px;
+    }
+
+    svg {
+      width: 100%;
+      height: 600px;
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* Enhanced node styles */
+    .node {
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+    }
+
+    .node:hover {
+      transform: scale(1.05);
+      filter: drop-shadow(0 8px 16px rgba(88, 166, 255, 0.4));
+    }
+
+    .node-bg {
+      fill: url(#nodeGradient);
+      stroke: #58a6ff;
+      stroke-width: 2;
+      rx: 16;
+      ry: 16;
+    }
+
+    .node.active .node-bg {
+      fill: url(#activeGradient);
+      stroke: #79c0ff;
+      stroke-width: 3;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { stroke-width: 3; }
+      50% { stroke-width: 5; }
+    }
+
+    .node-label {
+      fill: #e6edf3;
+      font-size: 14px;
+      font-weight: 500;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: none;
+    }
+
+    .node-icon {
+      font-size: 20px;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: none;
+    }
+
+    /* Enhanced flow paths */
+    .flow-path {
+      fill: none;
+      stroke: url(#flowGradient);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 300;
+      stroke-dashoffset: 300;
+      filter: drop-shadow(0 0 8px rgba(88, 166, 255, 0.3));
+    }
+
+    .flow-path.active {
+      animation: flowAnimation 2s ease-in-out forwards;
+    }
+
+    @keyframes flowAnimation {
+      to { stroke-dashoffset: 0; }
+    }
+
+    /* Animated tokens */
+    .token {
+      font-size: 28px;
+      opacity: 0;
+      pointer-events: none;
+      filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.5));
+      animation: tokenGlow 1s ease-in-out infinite alternate;
+    }
+
+    @keyframes tokenGlow {
+      from { filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.5)); }
+      to { filter: drop-shadow(0 0 20px rgba(88, 166, 255, 0.8)); }
+    }
+
+    /* Status display */
+    .status-panel {
+      background: linear-gradient(135deg, rgba(22, 27, 34, 0.8) 0%, rgba(13, 17, 23, 0.9) 100%);
+      border-radius: 16px;
+      padding: 30px;
+      text-align: center;
+      border: 1px solid rgba(88, 166, 255, 0.2);
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .status-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(88, 166, 255, 0.1), transparent);
+      animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { left: -100%; }
+      100% { left: 100%; }
+    }
+
+    .current-step {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #58a6ff;
+      margin-bottom: 10px;
+      min-height: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .step-description {
+      font-size: 1rem;
+      color: #8b949e;
+      font-weight: 400;
+      min-height: 1.5rem;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(88, 166, 255, 0.1);
+      border-radius: 3px;
+      margin-top: 20px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #58a6ff, #79c0ff);
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+
+    /* Enhanced tooltip */
+    .tooltip {
+      position: absolute;
+      background: linear-gradient(135deg, rgba(22, 27, 34, 0.95) 0%, rgba(13, 17, 23, 0.98) 100%);
+      color: #e6edf3;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid rgba(88, 166, 255, 0.3);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      z-index: 1000;
+    }
+
+    .tooltip.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 30px;
+    }
+
+    .control-btn {
+      background: linear-gradient(135deg, #58a6ff 0%, #4a90e2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(88, 166, 255, 0.3);
+    }
+
+    .control-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(88, 166, 255, 0.4);
+    }
+
+    .control-btn:active {
+      transform: translateY(0);
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+      .container { padding: 20px 15px; }
+      .flow-container { padding: 20px; }
+      svg { height: 500px; }
+      .header h1 { font-size: 2.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-particles"></div>
+  
+  <div class="container">
+    <div class="header">
+      <h1>🔄 Secure Voting Flow</h1>
+      <p>Experience the journey of a secure, transparent voting process with cryptographic protection and blockchain verification</p>
+    </div>
+
+    <div class="flow-container">
+      <svg viewBox="0 0 1000 600">
+        <!-- Gradients -->
+        <defs>
+          <linearGradient id="nodeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#21262d;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#161b22;stop-opacity:1" />
+          </linearGradient>
+          <linearGradient id="activeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#58a6ff;stop-opacity:0.2" />
+            <stop offset="100%" style="stop-color:#79c0ff;stop-opacity:0.1" />
+          </linearGradient>
+          <linearGradient id="flowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#58a6ff;stop-opacity:0.8" />
+            <stop offset="50%" style="stop-color:#79c0ff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#a5f3fc;stop-opacity:0.8" />
+          </linearGradient>
+        </defs>
+
+        <!-- Flow paths -->
+        <path id="path1" class="flow-path" d="M 150 100 Q 300 80 450 100" />
+        <path id="path2" class="flow-path" d="M 550 100 Q 700 80 850 100" />
+        <path id="path3" class="flow-path" d="M 850 150 Q 850 200 850 250" />
+        <path id="path4" class="flow-path" d="M 800 300 Q 650 320 500 300" />
+        <path id="path5" class="flow-path" d="M 400 300 Q 250 320 100 300" />
+        <path id="path6" class="flow-path" d="M 100 250 Q 100 200 100 150" />
+        <path id="path7" class="flow-path" d="M 150 400 Q 300 380 450 400" />
+        <path id="path8" class="flow-path" d="M 550 400 Q 700 380 850 400" />
+        <path id="path9" class="flow-path" d="M 850 450 Q 700 470 550 450" />
+        <path id="path10" class="flow-path" d="M 450 450 Q 300 470 150 450" />
+
+        <!-- Nodes -->
+        <g id="node1" class="node" data-title="User Registration" data-desc="New user creates account in the system">
+          <rect class="node-bg" x="100" y="75" width="100" height="50" />
+          <text class="node-icon" x="130" y="95">🧑</text>
+          <text class="node-label" x="150" y="110">Register</text>
+        </g>
+
+        <g id="node2" class="node" data-title="Key Generation" data-desc="System generates cryptographic key pair">
+          <rect class="node-bg" x="400" y="75" width="100" height="50" />
+          <text class="node-icon" x="430" y="95">🔑</text>
+          <text class="node-label" x="450" y="110">KeyGen</text>
+        </g>
+
+        <g id="node3" class="node" data-title="Key Encryption" data-desc="Private key encrypted with user password">
+          <rect class="node-bg" x="800" y="75" width="100" height="50" />
+          <text class="node-icon" x="830" y="95">🔐</text>
+          <text class="node-label" x="850" y="110">Encrypt</text>
+        </g>
+
+        <g id="node4" class="node" data-title="Server Storage" data-desc="Encrypted data stored securely on server">
+          <rect class="node-bg" x="800" y="275" width="100" height="50" />
+          <text class="node-icon" x="830" y="295">📦</text>
+          <text class="node-label" x="850" y="310">Store</text>
+        </g>
+
+        <g id="node5" class="node" data-title="Data Transmission" data-desc="Secure transmission to server infrastructure">
+          <rect class="node-bg" x="450" y="275" width="100" height="50" />
+          <text class="node-icon" x="480" y="295">📤</text>
+          <text class="node-label" x="500" y="310">Send</text>
+        </g>
+
+        <g id="node6" class="node" data-title="User Authentication" data-desc="User logs in with credentials">
+          <rect class="node-bg" x="50" y="275" width="100" height="50" />
+          <text class="node-icon" x="80" y="295">🔐</text>
+          <text class="node-label" x="100" y="310">Login</text>
+        </g>
+
+        <g id="node7" class="node" data-title="Vote Acceptance" data-desc="System validates and accepts the vote">
+          <rect class="node-bg" x="100" y="375" width="100" height="50" />
+          <text class="node-icon" x="130" y="395">✅</text>
+          <text class="node-label" x="150" y="410">Accept</text>
+        </g>
+
+        <g id="node8" class="node" data-title="Vote Casting" data-desc="User submits their encrypted vote">
+          <rect class="node-bg" x="400" y="375" width="100" height="50" />
+          <text class="node-icon" x="430" y="395">🗳️</text>
+          <text class="node-label" x="450" y="410">Cast Vote</text>
+        </g>
+
+        <g id="node9" class="node" data-title="Merkle Tree" data-desc="Vote added to blockchain merkle tree">
+          <rect class="node-bg" x="800" y="375" width="100" height="50" />
+          <text class="node-icon" x="830" y="395">🌳</text>
+          <text class="node-label" x="850" y="410">Merkle</text>
+        </g>
+
+        <g id="node10" class="node" data-title="Verification" data-desc="User verifies their vote was recorded">
+          <rect class="node-bg" x="500" y="475" width="100" height="50" />
+          <text class="node-icon" x="530" y="495">📄</text>
+          <text class="node-label" x="550" y="510">Verify</text>
+        </g>
+
+        <!-- Animated tokens -->
+        <text id="token1" class="token">🧑</text>
+        <text id="token2" class="token">🔑</text>
+        <text id="token3" class="token">🔐</text>
+        <text id="token4" class="token">📦</text>
+        <text id="token5" class="token">📤</text>
+        <text id="token6" class="token">🔐</text>
+        <text id="token7" class="token">✅</text>
+        <text id="token8" class="token">🗳️</text>
+        <text id="token9" class="token">🌳</text>
+        <text id="token10" class="token">📄</text>
+      </svg>
+    </div>
+
+    <div class="status-panel">
+      <div class="current-step" id="currentStep">Ready to begin...</div>
+      <div class="step-description" id="stepDescription">Click play to start the secure voting process</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="controls">
+        <button class="control-btn" id="playBtn">▶️ Play</button>
+        <button class="control-btn" id="pauseBtn">⏸️ Pause</button>
+        <button class="control-btn" id="resetBtn">🔄 Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tooltip" class="tooltip"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script>
+    // Create background particles
+    function createParticles() {
+      const container = document.querySelector('.bg-particles');
+      for (let i = 0; i < 50; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.top = Math.random() * 100 + '%';
+        particle.style.animationDelay = Math.random() * 8 + 's';
+        particle.style.animationDuration = (Math.random() * 4 + 6) + 's';
+        container.appendChild(particle);
+      }
+    }
+
+    // Animation data
+    const steps = [
+      { title: '🧑 User Registration', desc: 'New user creates account in the system', node: 1, path: 1 },
+      { title: '🔑 Key Generation', desc: 'System generates cryptographic key pair', node: 2, path: 2 },
+      { title: '🔐 Key Encryption', desc: 'Private key encrypted with user password', node: 3, path: 3 },
+      { title: '📦 Server Storage', desc: 'Encrypted data stored securely on server', node: 4, path: 4 },
+      { title: '📤 Data Transmission', desc: 'Secure transmission to server infrastructure', node: 5, path: 5 },
+      { title: '🔐 User Authentication', desc: 'User logs in with credentials', node: 6, path: 6 },
+      { title: '✅ Vote Acceptance', desc: 'System validates and accepts the vote', node: 7, path: 7 },
+      { title: '🗳️ Vote Casting', desc: 'User submits their encrypted vote', node: 8, path: 8 },
+      { title: '🌳 Merkle Tree', desc: 'Vote added to blockchain merkle tree', node: 9, path: 9 },
+      { title: '📄 Verification', desc: 'User verifies their vote was recorded', node: 10, path: 10 }
+    ];
+
+    let currentAnimation;
+    let isPlaying = false;
+    let currentStepIndex = 0;
+
+    // Animation timeline
+    function createTimeline() {
+      const timeline = anime.timeline({
+        easing: 'easeInOutCubic',
+        loop: true,
+        autoplay: false,
+        complete: () => {
+          setTimeout(() => {
+            if (isPlaying) timeline.restart();
+          }, 2000);
+        }
+      });
+
+      steps.forEach((step, index) => {
+        const delay = index * 1000;
+        
+        timeline
+          .add({
+            targets: `#path${step.path}`,
+            strokeDashoffset: [300, 0],
+            duration: 800,
+            begin: () => {
+              currentStepIndex = index;
+              updateStatus(step);
+              updateProgress((index + 1) / steps.length * 100);
+              
+              // Activate current node
+              document.querySelectorAll('.node').forEach(n => n.classList.remove('active'));
+              document.getElementById(`node${step.node}`).classList.add('active');
+            }
+          }, delay)
+          .add({
+            targets: `#token${step.node}`,
+            opacity: [0, 1],
+            scale: [0.5, 1.2, 1],
+            translateX: () => anime.path(`#path${step.path}`)('x'),
+            translateY: () => anime.path(`#path${step.path}`)('y'),
+            duration: 1200,
+            easing: 'easeOutElastic(1, .8)'
+          }, delay + 400)
+          .add({
+            targets: `#token${step.node}`,
+            opacity: [1, 0],
+            scale: [1, 0.8],
+            duration: 400
+          }, delay + 1400);
+      });
+
+      return timeline;
+    }
+
+    function updateStatus(step) {
+      document.getElementById('currentStep').textContent = step.title;
+      document.getElementById('stepDescription').textContent = step.desc;
+    }
+
+    function updateProgress(percentage) {
+      document.getElementById('progressFill').style.width = percentage + '%';
+    }
+
+    // Controls
+    document.getElementById('playBtn').addEventListener('click', () => {
+      if (!currentAnimation) {
+        currentAnimation = createTimeline();
+      }
+      currentAnimation.play();
+      isPlaying = true;
+    });
+
+    document.getElementById('pauseBtn').addEventListener('click', () => {
+      if (currentAnimation) {
+        currentAnimation.pause();
+        isPlaying = false;
+      }
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      if (currentAnimation) {
+        currentAnimation.restart();
+        currentAnimation.pause();
+      }
+      isPlaying = false;
+      currentStepIndex = 0;
+      updateStatus({ title: 'Ready to begin...', desc: 'Click play to start the secure voting process' });
+      updateProgress(0);
+      document.querySelectorAll('.node').forEach(n => n.classList.remove('active'));
+    });
+
+    // Tooltip functionality
+    const tooltip = document.getElementById('tooltip');
+    
+    document.querySelectorAll('.node').forEach(node => {
+      node.addEventListener('mouseenter', (e) => {
+        const title = node.getAttribute('data-title');
+        const desc = node.getAttribute('data-desc');
+        tooltip.innerHTML = `<strong>${title}</strong><br>${desc}`;
+        tooltip.classList.add('show');
+      });
+
+      node.addEventListener('mouseleave', () => {
+        tooltip.classList.remove('show');
+      });
+
+      node.addEventListener('mousemove', (e) => {
+        tooltip.style.left = (e.pageX + 15) + 'px';
+        tooltip.style.top = (e.pageY - 10) + 'px';
+      });
+    });
+
+    // Initialize
+    createParticles();
+    updateStatus({ title: 'Ready to begin...', desc: 'Click play to start the secure voting process' });
+  </script>
+</body>
+</html>
