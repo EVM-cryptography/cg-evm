@@ -42,7 +42,7 @@ graph TD
     H -- Yes --> I[ Reject Voting]
     H -- No --> J[ Accept Voting]
 
-    J --> K[Vote Casted (Hash + Signature)]
+    J --> K[Vote Casted Hash + Signature]
     K --> L[ Signature Verified]
     L --> M[ Vote Added to Merkle Tree]
     M --> N[Vote Stored in DB]
