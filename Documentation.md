@@ -10,6 +10,9 @@
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 
 ---
+## 🔗 Live Demo of workflow
+
+👉 [Click here to view the live animation](https://evm-cryptography.github.io/cg-evm/)
 
 ## 🧠 Overview
 
@@ -27,6 +30,7 @@ This project simulates a **secure electronic voting system** with:
 ## 🚀 Project Flow
 
 ```mermaid
+graph TD
     A[ User Registers] --> B[RSA Key Pair Generated]
     B --> C[ Private Key AES Encrypted]
     C --> D[Registration Request Sent to Server]
