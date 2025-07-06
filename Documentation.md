@@ -28,24 +28,24 @@ This project simulates a **secure electronic voting system** with:
 
 ```mermaid
 graph TD
-    A[🧑 User Registers] --> B[🔐 RSA Key Pair Generated]
-    B --> C[🔏 Private Key AES Encrypted]
-    C --> D[📨 Registration Request Sent to Server]
+    A[ User Registers] --> B[RSA Key Pair Generated]
+    B --> C[ Private Key AES Encrypted]
+    C --> D[Registration Request Sent to Server]
 
-    D --> E[🗂️ Server Stores hashUID, hashPwd, publicKey]
+    D --> E[ Server Stores hashUID, hashPwd, publicKey]
     
-    F[🔐 Login] --> G[✅ UID & Password Hashed & Verified]
+    F[ Login] --> G[ UID & Password Hashed & Verified]
     G --> H{Has User Voted?}
-    H -- Yes --> I[⛔ Reject Voting]
-    H -- No --> J[✅ Accept Voting]
+    H -- Yes --> I[ Reject Voting]
+    H -- No --> J[ Accept Voting]
 
-    J --> K[🗳️ Vote Casted (Hash + Signature)]
-    K --> L[🧾 Signature Verified]
-    L --> M[🌲 Vote Added to Merkle Tree]
-    M --> N[📦 Vote Stored in DB]
-    N --> O[🧠 Periodic Verification via Monitor]
+    J --> K[Vote Casted (Hash + Signature)]
+    K --> L[ Signature Verified]
+    L --> M[ Vote Added to Merkle Tree]
+    M --> N[Vote Stored in DB]
+    N --> O[ Periodic Verification via Monitor]
 
-    P[👨‍💻 User Requests Verification] --> Q[🧩 Merkle Proof + Signature + Root Hash]
+    P[ User Requests Verification] --> Q[ Merkle Proof + Signature + Root Hash]
 ```
 
 ---
